@@ -321,7 +321,7 @@ inline void drawBoard(unsigned long long board[]) {
         }
         cout << "\n";
     }
-    cout << "\nCastling rights: " << ((board[GAME_STATE] & 0x1ULL) == 1 ? "K" : "") << ((board[GAME_STATE] & 0x2ULL) != 0 ? "Q" : "") << ((board[GAME_STATE] & 0x4ULL) != 0 ? "k" : "") << ((board[GAME_STATE] & 0x8ULL) != 0 ? "q" : "");
+    cout << "\nCastling rights: " << ((board[GAME_STATE] & 0x1ULL) != 0 ? "K" : "") << ((board[GAME_STATE] & 0x2ULL) != 0 ? "Q" : "") << ((board[GAME_STATE] & 0x4ULL) != 0 ? "k" : "") << ((board[GAME_STATE] & 0x8ULL) != 0 ? "q" : "");
     cout << "\nEn Passant: " << (((board[GAME_STATE] >> 4) & 0xFULL) ? string() + (char)('a' - 1 + (((board[GAME_STATE] >> 4) & 0xFULL))) : "-");
     cout << "\nTurn: " << (((bitboard[GAME_STATE] >> 32) & 0x1ULL) ? "Black" : "White");
     cout << "\n\n";
@@ -378,6 +378,10 @@ inline void pawnCompute(int side, unsigned long long board[]) {
     if(took & kingPosition) {
         if(board[CHECKMASK] == MAX) {
             board[CHECKMASK] = (side == WHITE ? (took & kingPosition) >> 9 : (took & kingPosition) << 7);
+            int enPassantFile = ((board[GAME_STATE] >> 4) & 0xFULL);
+            if(enPassantFile && (bitscan((side == WHITE ? (took & kingPosition) >> 9 : (took & kingPosition) << 7)) & 0x7ULL) == enPassantFile - 1) {
+                board[CHECKMASK] += (1ULL << (side == BLACK ? 40 : 16) + enPassantFile - 1);
+            }
         } else {
             board[CHECKMASK] = 0;
         }
@@ -389,6 +393,10 @@ inline void pawnCompute(int side, unsigned long long board[]) {
     if(took & kingPosition) {
         if(board[CHECKMASK] == MAX) {
             board[CHECKMASK] = side == WHITE ? (took & kingPosition) >> 7 : (took & kingPosition) << 9;
+            int enPassantFile = (board[GAME_STATE] >> 4) & 0xFULL;
+            if(enPassantFile && (bitscan(side == WHITE ? (took & kingPosition) >> 7 : (took & kingPosition) << 9) & 0x7ULL) == enPassantFile - 1) {
+                board[CHECKMASK] += (1ULL << (side == BLACK ? 40 : 16) + enPassantFile - 1);
+            }
         } else {
             board[CHECKMASK] = 0;
         }
@@ -585,7 +593,6 @@ inline void setPosition(string fen, unsigned long long board[]) {
         move = BLACK;
     }
     curr += 2;
-    computeMasks(move, board);
     board[GAME_STATE] = 0;
     if(fen[curr] == 'K') {
         board[GAME_STATE] += 0x1ULL;
@@ -616,6 +623,7 @@ inline void setPosition(string fen, unsigned long long board[]) {
         board[GAME_STATE] += ((fen[curr] - 'a' + 1) << 4);
     }
     board[GAME_STATE] += (1ULL << 32) * (move == BLACK);
+    computeMasks(move, board);
     
 }   
 inline unsigned int moveToInt(int origin, int destination, int special, int promotion, int piece) {
@@ -682,7 +690,7 @@ inline vector<unsigned int> pawnMoves(int side, unsigned long long board[]) {
         unsigned long long king = board[side + KING];
         int kingRank = bitscan(king) / 8;
         if(kingRank == (side == WHITE ? 4 : 3)) {
-            unsigned long long rooks = board[side + ROOK] & RANKS[kingRank];
+            unsigned long long rooks = board[BLACK - side + ROOK] & RANKS[kingRank];
             bool isSet = false;
             while(rooks != 0 && !isSet) {
                 if(__builtin_popcountll((getHVRay(king, rooks&-rooks) - (rooks&-rooks)) & (~unoccupied)) == 2) {
@@ -692,7 +700,7 @@ inline vector<unsigned int> pawnMoves(int side, unsigned long long board[]) {
                 }
                 rooks -= rooks&-rooks;
             }
-            unsigned long long queens = board[side + QUEEN] & RANKS[kingRank];
+            unsigned long long queens = board[BLACK - side + QUEEN] & RANKS[kingRank];
             while(queens != 0 && !isSet) {
                 if(__builtin_popcountll((getHVRay(king, queens&-queens) - (queens&-queens)) & (~unoccupied)) == 2) {
                     isSet = true;
@@ -823,7 +831,7 @@ inline vector<unsigned int> kingMoves(int side, unsigned long long board[]) {
     }
 
     //kingside castle w
-    if(side == WHITE && (board[GAME_STATE] & 0x1ULL) == 1) {
+    if(side == WHITE && (board[GAME_STATE] & 0x1ULL) != 0) {
         if(board[CHECKMASK] == MAX && ((board[ATTACK_MASK] >> 5) & 0x1ULL) == 0 && ((board[ATTACK_MASK] >> 6) & 0x1ULL) == 0
         && ((occupied >> 5) & 0x1ULL) == 0 && ((occupied >> 6) & 0x1ULL) == 0) {
             moves.push_back(moveToInt(4, 6, 1, 0, KING));
@@ -955,16 +963,16 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
             }
             int fromSquare = bitscan(from);
             if(piece - side == ROOK) {
-                if(side == WHITE && (board[GAME_STATE] & 0x1ULL) == 1 && fromSquare == 0) {
+                if(side == WHITE && (board[GAME_STATE] & 0x2ULL) != 0 && fromSquare == 0) {
                     board[GAME_STATE] = setBit(board[GAME_STATE], 1, 0);
                 } 
-                if(side == WHITE && (board[GAME_STATE] & 0x2ULL) != 0 && fromSquare == 7) {
+                if(side == WHITE && (board[GAME_STATE] & 0x1ULL) != 0 && fromSquare == 7) {
                     board[GAME_STATE] = setBit(board[GAME_STATE], 0, 0);
                 } 
-                if(side == BLACK && (board[GAME_STATE] & 0x4ULL) != 0 && fromSquare == 56) {
+                if(side == BLACK && (board[GAME_STATE] & 0x8ULL) != 0 && fromSquare == 56) {
                     board[GAME_STATE] = setBit(board[GAME_STATE], 3, 0);
                 }
-                if(side == BLACK && (board[GAME_STATE] & 0x8ULL) != 0 && fromSquare == 63) {
+                if(side == BLACK && (board[GAME_STATE] & 0x4ULL) != 0 && fromSquare == 63) {
                     board[GAME_STATE] = setBit(board[GAME_STATE], 2, 0);
                 }
             }
@@ -974,7 +982,7 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
         if(side == BLACK && (board[GAME_STATE] & 0x2ULL) != 0 && toSquare == 0) {
             board[GAME_STATE] = setBit(board[GAME_STATE], 1, 0);
         } 
-        if(side == BLACK && (board[GAME_STATE] & 0x1ULL) == 1 && toSquare == 7) {
+        if(side == BLACK && (board[GAME_STATE] & 0x1ULL) != 0 && toSquare == 7) {
             board[GAME_STATE] = setBit(board[GAME_STATE], 0, 0);
         } 
         if(side == WHITE && (board[GAME_STATE] & 0x8ULL) != 0 && toSquare == 56) {
@@ -1022,7 +1030,7 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
         if(side == BLACK && (board[GAME_STATE] & 0x2ULL) != 0 && toSquare == 0) {
             board[GAME_STATE] = setBit(board[GAME_STATE], 1, 0);
         } 
-        if(side == BLACK && (board[GAME_STATE] & 0x1ULL) == 1 && toSquare == 7) {
+        if(side == BLACK && (board[GAME_STATE] & 0x1ULL) != 0 && toSquare == 7) {
             board[GAME_STATE] = setBit(board[GAME_STATE], 0, 0);
         } 
         if(side == WHITE && (board[GAME_STATE] & 0x8ULL) != 0 && toSquare == 56) {
@@ -1064,11 +1072,10 @@ inline unsigned long long perft(int depth, unsigned long long board[]) {
     vector<unsigned int> moves = generateMoves(side, board);
     unsigned long long nodes = 0;
     for(auto i : moves) {
-        /*if(depth == 6) 
-            cout << intToCoord(i & 0x3F) << intToCoord((i >> 6) & 0x3F) << ": ";
+        //if(depth == 5) cout << intToCoord(i & 0x3F) << intToCoord((i >> 6) & 0x3F) << ": ";
         if(depth == 1) {
             //cout << "  " << intToCoord(i & 0x3F) << intToCoord((i >> 6) & 0x3F) << endl;
-        }*/
+        }
         //cout << depth << endl;
         unsigned long long boardcpy[20];
         copy(board, board + 20, boardcpy);
@@ -1077,15 +1084,17 @@ inline unsigned long long perft(int depth, unsigned long long board[]) {
             drawBoard(boardcpy);
         }*/
         unsigned long long current = perft(depth - 1, boardcpy);
-        //if(depth == 6) cout << current << "\n";
+        //if(depth == 5) cout << current << "\n";
         nodes += current;
     }
     return nodes;
 }
 int main() {
     precomputeMasks();
-    setPosition("n1n5/PPPk4/8/8/8/8/4Kppp/5N1N b - - 0 1", bitboard);
-    for(int i = 1; i < 7; i++) {
+    setPosition("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", bitboard);
+    //makeMove(moveToInt(coordToInt("h1"), coordToInt("f1"), 0, 0, ROOK), bitboard);
+    //drawBoard(bitboard);
+    for(int i = 1; i < 8; i++) {
         long long begin = GetTickCount();
         cout << "Performance test, i = " << i << " - " << perft(i, bitboard) << endl;
         long long end = GetTickCount();
