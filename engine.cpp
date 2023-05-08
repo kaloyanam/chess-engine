@@ -6,9 +6,10 @@
 #include <time.h>
 #include <chrono>
 #include <algorithm>
+#include <conio.h>
 #include "constants.h"
 using namespace std;
-unsigned long long bitboard[20];
+unsigned long long bitboard[BITBOARD_SIZE];
 
 inline int coordToInt(string coord) {
     return coord[0] - 'a' + (coord[1] - '1') * 8;
@@ -40,6 +41,11 @@ inline unsigned long long random64() {
     static uniform_int_distribution<unsigned long long> distr;
     return distr(rng);
 }
+
+inline constexpr int getSide(unsigned long long board[]) {
+    return ((board[GAME_STATE] >> 32) & 0x1ULL) * BLACK;
+}
+
 inline constexpr int bitscan (unsigned long long n) {
     const unsigned long long debruijn64 = 0x07EDD5E59A4E28C2ULL;
     return INDEX64[((n & -n) * debruijn64) >> 58];
@@ -262,6 +268,11 @@ inline unsigned long long occupiedMask(int side, unsigned long long board[]) {
 
     return result;
 }
+
+inline void printMove(unsigned int move) {
+    cout << intToCoord(move & 0x3F) << intToCoord((move >> 6) & 0x3F);
+}
+
 inline void drawBoard(unsigned long long board[]) {
     for(int i = 7; i >= 0; i--) {
         for(int j = 0; j < 8; j++) {
@@ -937,7 +948,7 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
     unsigned long long to = 1ULL << ((move >> 6) & 0x3FULL);
     int special = (move >> 12) & 0x3ULL;
     int promotion = (move >> 14) & 0x3ULL;
-    int side = ((board[GAME_STATE] >> 32) & 0x1ULL) * BLACK;
+    int side = getSide(board);
     int piece = ((move >> 16) & 0x7ULL) + side;
     if((side == WHITE ? board[OCCUPANCY_BLACK] : board[OCCUPANCY_WHITE]) & to) {
         int taken;
@@ -1068,7 +1079,7 @@ inline unsigned long long perft(int depth, unsigned long long board[]) {
     if(depth == 0) {
         return 1;
     }
-    int side = ((board[GAME_STATE] >> 32) & 0x1ULL) * BLACK;
+    int side = getSide(board);
     vector<unsigned int> moves = generateMoves(side, board);
     unsigned long long nodes = 0;
     for(auto i : moves) {
@@ -1077,8 +1088,8 @@ inline unsigned long long perft(int depth, unsigned long long board[]) {
             //cout << "  " << intToCoord(i & 0x3F) << intToCoord((i >> 6) & 0x3F) << endl;
         }
         //cout << depth << endl;
-        unsigned long long boardcpy[20];
-        copy(board, board + 20, boardcpy);
+        unsigned long long boardcpy[BITBOARD_SIZE];
+        copy(board, board + BITBOARD_SIZE, boardcpy);
         makeMove(i, boardcpy);
         /*if(depth == 3 && i == moveToInt(coordToInt("e1"), coordToInt("d1"), 0, 0)) {
             drawBoard(boardcpy);
@@ -1089,53 +1100,134 @@ inline unsigned long long perft(int depth, unsigned long long board[]) {
     }
     return nodes;
 }
+
+double evaluate(unsigned long long board[]) {
+    double result = 0;
+    vector<unsigned int> a = generateMoves(WHITE, board);
+    result += (double) a.size() / 100.;
+    a = generateMoves(BLACK, board);
+    result -= (double) a.size() / 100.;
+    result += __builtin_popcountll(board[WHITE + PAWN]) - __builtin_popcountll(board[BLACK + PAWN]);
+    result += 2.7 * __builtin_popcountll(board[WHITE + KNIGHT]) - 2.7 * __builtin_popcountll(board[BLACK + KNIGHT]);
+    result += 2.9 * __builtin_popcountll(board[WHITE + BISHOP]) - 2.9 * __builtin_popcountll(board[BLACK + BISHOP]);
+    result += 4.9 * __builtin_popcountll(board[WHITE + ROOK]) - 4.9 * __builtin_popcountll(board[BLACK + ROOK]);
+    result += 9.6 * __builtin_popcountll(board[WHITE + QUEEN]) - 9.6 * __builtin_popcountll(board[BLACK + QUEEN]);
+    result = round(result * 100) / 100.;
+    return result;
+}
+
+pair<unsigned int, double> negamax(int depth, double alpha, double beta, unsigned long long board[], bool debug = false) {
+    int side = getSide(board);
+    if(depth == 0) {
+        return {0, evaluate(board) * (side == WHITE ? 1 : -1)};
+    }
+
+    vector<unsigned int> moves = generateMoves(side, board);
+
+    if(moves.size() == 0) {
+        if(board[CHECKMASK] == MAX) return {0, 0};
+        else return {0, (side == WHITE ? -10000 : 10000)};
+    }
+    unsigned int current;
+    double value = -20000;
+    for(auto i : moves) {
+        unsigned long long boardcpy[BITBOARD_SIZE];
+        copy(board, board + BITBOARD_SIZE, boardcpy);
+        makeMove(i, boardcpy);
+        pair<unsigned int, double> currMove = negamax(depth - 1, -beta, -alpha, boardcpy);
+        if(debug) {
+            printMove(i);
+            cout << ": " << currMove.second << "\n";
+        }
+        if(value < -currMove.second) {
+            value = -currMove.second;
+            current = i;
+        }
+        alpha = max(alpha, value);
+        if(alpha >= beta) break;
+    }
+    return {current, value};
+}
+
 int main() {
     precomputeMasks();
     setPosition("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", bitboard);
+    // int move = negamax(4, -20000, 20000, bitboard).first;
+    // printMove(move);
+    // cout << endl;
     //makeMove(moveToInt(coordToInt("h1"), coordToInt("f1"), 0, 0, ROOK), bitboard);
     //drawBoard(bitboard);
-    for(int i = 1; i < 8; i++) {
+    // unsigned int move = negamax(1, -20000, 20000, bitboard).first;
+    // cout << "  " << intToCoord(move & 0x3F) << intToCoord((move >> 6) & 0x3F) << endl;
+    /*for(int i = 1; i < 8; i++) {
         long long begin = GetTickCount();
         cout << "Performance test, i = " << i << " - " << perft(i, bitboard) << endl;
         long long end = GetTickCount();
         cout << "Elapsed time: " << end - begin << " ms\n\n";
+    }*/
+
+    while(true) {
+        int side = getSide(bitboard);
+        if(side == WHITE) {
+            string s;
+            cin >> s;
+            unsigned int move = moveToInt(coordToInt(string() + s[0] + s[1]), coordToInt(string() + s[2] + s[3]), s[4] - '0', s[5] - '0', s[6] - '0');
+            vector<unsigned int> a = generateMoves(WHITE, bitboard);
+            while(find(a.begin(), a.end(), move) == a.end()) {
+                cout << "Invalid move"; 
+                printMove(move);
+                cout << endl;
+                cin >> s;
+                move = moveToInt(coordToInt(string() + s[0] + s[1]), coordToInt(string() + s[2] + s[3]), s[4] - '0', s[5] - '0', s[6] - '0');
+            }   
+            makeMove(move, bitboard);
+        } else {
+            long long begin = GetTickCount();
+            int move = negamax(5, -20000, 20000, bitboard, true).first;
+            long long end = GetTickCount();
+            cout << "Elapsed time: " << end - begin << " ms\n\n";
+            printMove(move);
+            cout << endl;
+            makeMove(move, bitboard);
+            drawBoard(bitboard);
+        }
     }
 }
 
 /*
-    TEST 1:
-        Performance test, i = 1 - 20
-        Elapsed time: 0 ms
+TEST 1:
+    Performance test, i = 1 - 20
+    Elapsed time: 0 ms
 
-        Performance test, i = 2 - 400
-        Elapsed time: 0 ms
+    Performance test, i = 2 - 400
+    Elapsed time: 0 ms
 
-        Performance test, i = 3 - 8902
-        Elapsed time: 15 ms
+    Performance test, i = 3 - 8902
+    Elapsed time: 15 ms
 
-        Performance test, i = 4 - 197281
-        Elapsed time: 79 ms
+    Performance test, i = 4 - 197281
+    Elapsed time: 79 ms
 
-        Performance test, i = 5 - 4865609
-        Elapsed time: 1890 ms
+    Performance test, i = 5 - 4865609
+    Elapsed time: 1890 ms
 
-        Performance test, i = 6 - 119060324
-        Elapsed time: 47203 ms
-    */
-   /*
-   TEST 2:
-        Performance test, i = 1 - 48
-        Elapsed time: 0 ms
+    Performance test, i = 6 - 119060324
+    Elapsed time: 47203 ms
+*/
+/*
+TEST 2:
+    Performance test, i = 1 - 48
+    Elapsed time: 0 ms
 
-        Performance test, i = 2 - 2039
-        Elapsed time: 0 ms
+    Performance test, i = 2 - 2039
+    Elapsed time: 0 ms
 
-        Performance test, i = 3 - 97862
-        Elapsed time: 31 ms
+    Performance test, i = 3 - 97862
+    Elapsed time: 31 ms
 
-        Performance test, i = 4 - 4085603
-        Elapsed time: 1578 ms
+    Performance test, i = 4 - 4085603
+    Elapsed time: 1578 ms
 
-        Performance test, i = 5 - 193690690
-        Elapsed time: 71782 ms
-   */
+    Performance test, i = 5 - 193690690
+    Elapsed time: 71782 ms
+*/

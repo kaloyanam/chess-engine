@@ -14,6 +14,8 @@ const int GAME_STATE = 16;
 const int OCCUPANCY_WHITE = 17;
 const int OCCUPANCY_BLACK = 18;
 const int OCCUPANCY = 19;
+const int DEFENSE_MASK = 20;
+const int BITBOARD_SIZE = 21;
 /*
 bits 0-3 - castling rights KQkq
 bits 4-7 - en passant file (1-8, 0 - no)
@@ -210,6 +212,8 @@ const unsigned long long RANK_5 = 0xFF00000000ULL;
 const unsigned long long RANK_6 = 0xFF0000000000ULL;
 const unsigned long long RANK_7 = 0xFF000000000000ULL;
 const unsigned long long RANK_8 = 0xFF00000000000000ULL;
+const unsigned long long WHITE_HALF = RANK_1 | RANK_2 | RANK_3 | RANK_4;
+const unsigned long long BLACK_HALF = ~WHITE_HALF;
 constexpr unsigned long long RANKS[8] = {RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8};
 constexpr unsigned long long FILES[8] = {A_FILE, B_FILE, C_FILE, D_FILE, E_FILE, F_FILE, G_FILE, H_FILE};
 //const unsigned long long MAIN_DIAGONAL = 0x8040201008040201ULL;
