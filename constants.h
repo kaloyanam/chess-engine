@@ -1,12 +1,10 @@
 #include <iostream>
 #include <bitset>
 #include <vector>
-#include <windows.h>
 #include <random>
 #include <time.h>
 #include <chrono>
 #include <algorithm>
-#include <conio.h>
 #include <unordered_map>
 #include <cassert>
 const int PAWN = 0;
