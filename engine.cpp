@@ -507,7 +507,6 @@ inline void queenCompute(int side, unsigned long long board[]) {
 
 inline void kingCompute(int side, unsigned long long board[]) {
     side = BLACK - side;
-    unsigned long long notSameColor = ~occupiedMask(side, board);
     int position = bitscan(board[side + KING]);
     board[ATTACK_MASK] |= KING_MASK[position];   
 }
@@ -633,8 +632,7 @@ inline void setPosition(string fen, unsigned long long board[]) {
     
 }   
 
-inline vector<unsigned int> pawnMoves(int side, unsigned long long board[]) {
-    vector<unsigned int> moves;
+inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
     unsigned long long occupied_white = board[OCCUPANCY_WHITE];
     unsigned long long occupied_black = board[OCCUPANCY_BLACK];
     unsigned long long unoccupied = ~(board[OCCUPANCY]);
@@ -797,13 +795,9 @@ inline vector<unsigned int> pawnMoves(int side, unsigned long long board[]) {
             else moves.push_back(moveToInt(from, to, 0, 0, PAWN));
         }
     }
-
-    
-    return moves;
 }
 
-inline vector<unsigned int> knightMoves(int side, unsigned long long board[]) {
-    vector<unsigned int> moves;
+inline void knightMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     unsigned long long pins = board[HV] | board[D12];
     for(unsigned long long i = board[side + KNIGHT]; i != 0; i -= i&-i) {
@@ -815,13 +809,11 @@ inline vector<unsigned int> knightMoves(int side, unsigned long long board[]) {
             moves.push_back(moveToInt(position, to, 0, 0, KNIGHT));
         }
     }
-    return moves;
 }
 
-inline vector<unsigned int> kingMoves(int side, unsigned long long board[]) {
-    vector<unsigned int> moves;
+inline void kingMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
-    unsigned long long occupied = occupiedMask(-1, board);
+    unsigned long long occupied = board[OCCUPANCY];
     int position = bitscan(board[side + KING]);
     unsigned long long moveMap = KING_MASK[position] & notSameColor & ~board[ATTACK_MASK];
     for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
@@ -857,11 +849,9 @@ inline vector<unsigned int> kingMoves(int side, unsigned long long board[]) {
             moves.push_back(moveToInt(60, 58, 1, 0, KING));
         }
     }
-    return moves;
 }
 
-inline vector<unsigned int> bishopMoves(int side, unsigned long long board[]) {
-    vector<unsigned int> moves;
+inline void bishopMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
     unsigned long long occupied = board[OCCUPANCY];
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     for(unsigned long long i = board[side + BISHOP]; i != 0; i -= i&-i) {
@@ -876,12 +866,9 @@ inline vector<unsigned int> bishopMoves(int side, unsigned long long board[]) {
             moves.push_back(moveToInt(position, to, 0, 0, BISHOP));
         }
     }
-
-    return moves;
 }
 
-inline vector<unsigned int> rookMoves(int side, unsigned long long board[]) {
-    vector<unsigned int> moves;
+inline void rookMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
     unsigned long long occupied = board[OCCUPANCY];
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     for(unsigned long long i = board[side + ROOK]; i != 0; i -= i&-i) {
@@ -896,12 +883,9 @@ inline vector<unsigned int> rookMoves(int side, unsigned long long board[]) {
             moves.push_back(moveToInt(position, to, 0, 0, ROOK));
         }
     }
-
-    return moves;
 }
 
-inline vector<unsigned int> queenMoves(int side, unsigned long long board[]) {
-    vector<unsigned int> moves;
+inline void queenMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
     unsigned long long occupied = board[OCCUPANCY];
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     for(unsigned long long i = board[side + QUEEN]; i != 0; i -= i&-i) {
@@ -928,8 +912,6 @@ inline vector<unsigned int> queenMoves(int side, unsigned long long board[]) {
             }
         }
     }
-
-    return moves;
 }
 
 inline void makeMove(unsigned int move, unsigned long long board[]) {
@@ -1069,111 +1051,29 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
     board[HASH] ^= ZOBRIST_BLACK_TO_MOVE;
 }
 
-inline vector<unsigned int> generateMoves(int side, unsigned long long board[]) {
-    vector<unsigned int> moves;
-    auto found = transpositionTable.find(board[HASH]);
-    if(found == transpositionTable.end()) {
-        moves = pawnMoves(side, board);
-        vector<unsigned int> special;
-        for(int i = 0; i < moves.size();) {
-            if(((moves[i] >> 12) & 0x3ULL) == 2) {
-                special.push_back(moves[i]);
-                moves.erase(moves.begin() + i);
-            } else i++;
-        }
-        vector<unsigned int> a = knightMoves(side, board);
-        moves.insert(moves.end(), a.begin(), a.end());
-        a = bishopMoves(side, board);
-        moves.insert(moves.end(), a.begin(), a.end());
-        a = rookMoves(side, board);
-        moves.insert(moves.end(), a.begin(), a.end());
-        a = queenMoves(side, board);
-        moves.insert(moves.end(), a.begin(), a.end());
-        a = kingMoves(side, board);
-        for(int i = 0; i < a.size();) {
-            if(((a[i] >> 12) & 0x3ULL) == 1) {
-                special.push_back(a[i]);
-                a.erase(a.begin() + i);
-            } else i++;
-        }
-        moves.insert(moves.end(), a.begin(), a.end());
-        if(transpositionTable.size() >= 5000000) {
-            for(int i = 0; i < 1250000; i++) {
-                transpositionTable.erase(transpositionTable.begin());
-            }
-        }
-        transpositionTable.insert({board[HASH], moves});
-        moves.insert(moves.end(), special.begin(), special.end());
-    }
-
-    else {
-        moves = found->second;
-        vector<unsigned int> a = pawnMoves(side, board);
-        vector<unsigned int> special;
-        for(auto move : a) {
-            if(((move >> 12) & 0x3ULL) == 2) {
-                special.push_back(move);
-            }
-        }
-        a = kingMoves(side, board);
-        for(auto move : a) {
-            if(((move >> 12) & 0x3ULL) == 1) {
-                special.push_back(move);
-            }
-        }
-        moves.insert(moves.end(), special.begin(), special.end());
-    }
-
-    #ifdef DEBUG
-    vector<unsigned int> moves2 = pawnMoves(side, board);
-    vector<unsigned int> a2 = knightMoves(side, board);
-    moves2.insert(moves2.end(), a2.begin(), a2.end());
-    a2 = bishopMoves(side, board);
-    moves2.insert(moves2.end(), a2.begin(), a2.end());
-    a2 = rookMoves(side, board);
-    moves2.insert(moves2.end(), a2.begin(), a2.end());
-    a2 = queenMoves(side, board);
-    moves2.insert(moves2.end(), a2.begin(), a2.end());
-    a2 = kingMoves(side, board);
-    moves2.insert(moves2.end(), a2.begin(), a2.end());
-    if(moves.size() != moves2.size()) {
-        cout << moves.size() << ": " << moves2.size();
-        cout << endl;
-        vector<unsigned int> m2 = transpositionTable[board[HASH]];
-        for(auto i : m2) {
-            cout << intToCoord(i & 0x3F) << intToCoord((i >> 6) & 0x3F) << ", ";
-        }
-        cout << endl;
-        for(auto i : moves2) {
-            cout << intToCoord(i & 0x3F) << intToCoord((i >> 6) & 0x3F) << ", ";
-        }
-        drawBoard(board);
-        exit(EXIT_FAILURE);
-    }
-    #endif
-    return moves;
+inline void generateMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+    pawnMoves(side, board, moves);
+    knightMoves(side, board, moves);
+    bishopMoves(side, board, moves);
+    rookMoves(side, board, moves);
+    queenMoves(side, board, moves);
+    kingMoves(side, board, moves);
 }
 
-
 inline unsigned long long perft(int depth, unsigned long long board[], bool debug=false) {
-    if(depth == 0) {
-        return 1;
-    }
     int side = getSide(board);
-    vector<unsigned int> moves = generateMoves(side, board);
+    fixedVector<unsigned int> moves;
+    generateMoves(side, board, moves);
     unsigned long long nodes = 0;
-    for(auto i : moves) {
-        if(debug) cout << intToCoord(i & 0x3F) << intToCoord((i >> 6) & 0x3F) << ": ";
-        if(depth == 1) {
-            //cout << "  " << intToCoord(i & 0x3F) << intToCoord((i >> 6) & 0x3F) << endl;
-        }
-        //cout << depth << endl;
+    if(depth <= 1) {
+        return moves.size; 
+    }
+    for(int i = 0; i < moves.size; i++) {
+        unsigned int curr = moves.arr[i];
+        if(debug) cout << intToCoord(curr & 0x3F) << intToCoord((curr >> 6) & 0x3F) << ": ";
         unsigned long long boardcpy[BITBOARD_SIZE];
         copy(board, board + BITBOARD_SIZE, boardcpy);
-        makeMove(i, boardcpy);
-        /*if(depth == 3 && i == moveToInt(coordToInt("e1"), coordToInt("d1"), 0, 0)) {
-            drawBoard(boardcpy);
-        }*/
+        makeMove(curr, boardcpy);
         unsigned long long current = perft(depth - 1, boardcpy);
         if(debug) cout << current << "\n";
         nodes += current;
@@ -1192,10 +1092,14 @@ inline unsigned long long perft(int depth, string fen) {
 
 double evaluate(unsigned long long board[]) {
     double result = 0;
-    vector<unsigned int> a = generateMoves(WHITE, board);
-    result += (double) a.size() / 100.;
-    a = generateMoves(BLACK, board);
-    result -= (double) a.size() / 100.;
+    fixedVector<unsigned int> a;
+    computeMasks(WHITE, board);
+    generateMoves(WHITE, board, a);
+    result += (double) a.size / 100.;
+    fixedVector<unsigned int> b;
+    computeMasks(BLACK, board);
+    generateMoves(BLACK, board, b);
+    result -= (double) b.size / 100.;
     result += __builtin_popcountll(board[WHITE + PAWN]) - __builtin_popcountll(board[BLACK + PAWN]);
     result += 2.7 * __builtin_popcountll(board[WHITE + KNIGHT]) - 2.7 * __builtin_popcountll(board[BLACK + KNIGHT]);
     result += 2.9 * __builtin_popcountll(board[WHITE + BISHOP]) - 2.9 * __builtin_popcountll(board[BLACK + BISHOP]);
@@ -1211,26 +1115,28 @@ pair<unsigned int, double> negamax(int depth, double alpha, double beta, unsigne
         return {0, evaluate(board) * (side == WHITE ? 1 : -1)};
     }
 
-    vector<unsigned int> moves = generateMoves(side, board);
+    fixedVector<unsigned int> moves;
+    generateMoves(side, board, moves);
 
-    if(moves.size() == 0) {
+    if(moves.size == 0) {
         if(board[CHECKMASK] == MAX) return {0, 0};
         else return {0, (side == WHITE ? -10000 : 10000)};
     }
     unsigned int current;
     double value = -20000;
-    for(auto i : moves) {
+    for(int i = 0; i < moves.size; i++) {
+        unsigned int curr = moves.arr[i];
         unsigned long long boardcpy[BITBOARD_SIZE];
         copy(board, board + BITBOARD_SIZE, boardcpy);
-        makeMove(i, boardcpy);
+        makeMove(curr, boardcpy);
         pair<unsigned int, double> currMove = negamax(depth - 1, -beta, -alpha, boardcpy);
         if(debug) {
-            printMove(i);
+            printMove(curr);
             cout << ": " << currMove.second << "\n";
         }
         if(value < -currMove.second) {
             value = -currMove.second;
-            current = i;
+            current = curr;
         }
         alpha = max(alpha, value);
         if(alpha >= beta) break;

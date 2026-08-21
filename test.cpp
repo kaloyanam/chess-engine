@@ -16,6 +16,7 @@ int main() {
     cout << "Precomputing masks...\n";
     precomputeMasks();
     cout << "Done\n";
+
     //Position 1
     cout << "Initial position working correctly, elapsed time: " << testPosition(6, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 119060324) << " ms\n";
 
@@ -33,4 +34,34 @@ int main() {
     
     //Position 6
     cout << "Position 6 working correctly, elapsed time: " << testPosition(5, "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", 164075551) << " ms\n";
+
 }
+/*
+Initial position working correctly, elapsed time: 31805 ms
+Position 2 working correctly, elapsed time: 49861 ms
+Position 3 working correctly, elapsed time: 2782 ms
+Position 4 working correctly, elapsed time: 4586 ms
+Position 5 working correctly, elapsed time: 24125 ms
+Position 6 working correctly, elapsed time: 42057 ms
+_____________ After fixed vector
+Initial position working correctly, elapsed time: 22531 ms
+Position 2 working correctly, elapsed time: 35730 ms
+Position 3 working correctly, elapsed time: 1654 ms
+Position 4 working correctly, elapsed time: 3052 ms
+Position 5 working correctly, elapsed time: 17003 ms
+Position 6 working correctly, elapsed time: 31249 ms
+_____________ After correct compilation flags g++ $fileName -w -O3 -march=native -flto -o
+Initial position working correctly, elapsed time: 2102 ms
+Position 2 working correctly, elapsed time: 3480 ms
+Position 3 working correctly, elapsed time: 144 ms
+Position 4 working correctly, elapsed time: 323 ms
+Position 5 working correctly, elapsed time: 1636 ms
+Position 6 working correctly, elapsed time: 3147 ms
+_____________ After perft optimization
+Initial position working correctly, elapsed time: 262 ms
+Position 2 working correctly, elapsed time: 394 ms
+Position 3 working correctly, elapsed time: 25 ms
+Position 4 working correctly, elapsed time: 35 ms
+Position 5 working correctly, elapsed time: 181 ms
+Position 6 working correctly, elapsed time: 337 ms
+*/

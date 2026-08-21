@@ -1,6 +1,15 @@
 #include "constants.h"
 using namespace std;
 
+template<typename T>
+struct fixedVector {
+    T arr[256];
+    int size = 0;
+    void push_back(T i) {arr[size++] = i;}
+    void clear() {size = 0;}
+    vector<T> toVector() {return vector<T>(arr, arr + size);}
+};
+
 inline int coordToInt(string coord) {
     return coord[0] - 'a' + (coord[1] - '1') * 8;
 }
