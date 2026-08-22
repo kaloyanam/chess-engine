@@ -14,31 +14,19 @@ int main() {
         }
     }*/
 
+    setPosition("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8", bitboard);
     while(true) {
+        drawBoard(bitboard);
         int side = getSide(bitboard);
-        if(side == WHITE) {
-            string s;
+        string s;
+        cin >> s;
+        unsigned int move = moveToInt(s, bitboard);
+        while(move == -1) {
+            cout << "Invalid move\n";
             cin >> s;
-            unsigned int move = moveToInt(coordToInt(string() + s[0] + s[1]), coordToInt(string() + s[2] + s[3]), s[4] - '0', s[5] - '0', s[6] - '0');
-            vector<unsigned int> a = generateMoves(WHITE, bitboard);
-            while(find(a.begin(), a.end(), move) == a.end()) {
-                cout << "Invalid move"; 
-                printMove(move);
-                cout << endl;
-                cin >> s;
-                move = moveToInt(coordToInt(string() + s[0] + s[1]), coordToInt(string() + s[2] + s[3]), s[4] - '0', s[5] - '0', s[6] - '0');
-            }   
-            makeMove(move, bitboard);
-        } else {
-            long long begin = currentMillis();
-            int move = negamax(7, -20000, 20000, bitboard, true).first;
-            long long end = currentMillis();
-            cout << "Elapsed time: " << end - begin << " ms\n\n";
-            printMove(move);
-            cout << endl;
-            makeMove(move, bitboard);
-            drawBoard(bitboard);
-        }
+            move = moveToInt(s, bitboard);
+        }   
+        makeMove(move, bitboard);
     }
 }
 
