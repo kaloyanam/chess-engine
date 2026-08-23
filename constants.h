@@ -40,7 +40,9 @@ bits 0-11 - origin and destination
 bits 12, 13 - special move (0 - normal, 1 - castle, 2 - en passant, 3 - promotion)
 bits 14, 15 - piece (value + 1)
 bits 16-18 - piece moved
+bits 19-25 - mvv-lva rating (0 - non capture)
 */
+constexpr int PIECE_WEIGHTS[6] = {1, 3, 3, 5, 9, 15};
 constexpr int INDEX64[64] = {
    63,  0, 58,  1, 59, 47, 53,  2,
    60, 39, 48, 27, 54, 33, 42,  3,

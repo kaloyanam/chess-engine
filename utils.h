@@ -8,14 +8,25 @@ struct fixedVector {
     void push_back(T i) {arr[size++] = i;}
     void clear() {size = 0;}
     vector<T> toVector() {return vector<T>(arr, arr + size);}
+    void sort() {
+        for(int i = 0; i < size; i++) {
+            int best = (arr[i] >> 19) & 0x7F;
+            for(int j = i + 1; j < size; j++) {
+                if(best < ((arr[j] >> 19) & 0x7F)) {
+                    best = (arr[j] >> 19) & 0x7F;
+                    swap(arr[i], arr[j]);
+                }
+            }
+        }
+    }
 };
 
-inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves);
-inline void knightMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves);
-inline void bishopMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves);
-inline void rookMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves);
-inline void queenMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves);
-inline void kingMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves);
+inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
+inline void knightMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
+inline void bishopMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
+inline void rookMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
+inline void queenMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
+inline void kingMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 
 inline int coordToInt(string coord) {
     return coord[0] - 'a' + (coord[1] - '1') * 8;
@@ -81,14 +92,20 @@ inline unsigned int moveToInt(int origin, int destination, int special, int prom
     return result;
 }
 
-inline unsigned int moveToInt(string move, unsigned long long board[]) {
+inline unsigned int moveToInt(int origin, int destination, int special, int promotion, int piece, unsigned int mvv_lva) {
+    unsigned result = moveToInt(origin, destination, special, promotion, piece);
+    result += mvv_lva << 19;
+    return result;
+}
+
+inline unsigned int moveToInt(string move, unsigned long long board[], int pieces[]) {
     try {
         move.erase(remove(move.begin(), move.end(), '+'), move.end());
         move.erase(remove(move.begin(), move.end(), '#'), move.end());
         int side = getSide(board);
         if(move == "O-O") {
             fixedVector<unsigned int> moves;
-            kingMoves(side, board, moves);
+            kingMoves(side, board, moves, pieces);
             unsigned int finalMove = side == WHITE ? moveToInt(coordToInt("e1"), coordToInt("g1"), 1, 0, 5) : moveToInt(coordToInt("e8"), coordToInt("g8"), 1, 0, 5);
             for(int i = 0; i < moves.size; i++) {
                 if(moves.arr[i] == finalMove) return finalMove;
@@ -97,7 +114,7 @@ inline unsigned int moveToInt(string move, unsigned long long board[]) {
         }
         if(move == "O-O-O") {
             fixedVector<unsigned int> moves;
-            kingMoves(side, board, moves);
+            kingMoves(side, board, moves, pieces);
             unsigned int finalMove = side == WHITE ? moveToInt(coordToInt("e1"), coordToInt("c1"), 1, 0, 5) : moveToInt(coordToInt("e8"), coordToInt("c8"), 1, 0, 5);
             for(int i = 0; i < moves.size; i++) {
                 if(moves.arr[i] == finalMove) return finalMove;
@@ -108,27 +125,27 @@ inline unsigned int moveToInt(string move, unsigned long long board[]) {
         switch (move[0])
         {
         case 'N':
-            knightMoves(side, board, validMoves);
+            knightMoves(side, board, validMoves, pieces);
             move = move.substr(1);
             break;
         case 'B':
-            bishopMoves(side, board, validMoves);
+            bishopMoves(side, board, validMoves, pieces);
             move = move.substr(1);
             break;
         case 'R':
-            rookMoves(side, board, validMoves);
+            rookMoves(side, board, validMoves, pieces);
             move = move.substr(1);
             break;
         case 'Q':
-            queenMoves(side, board, validMoves);
+            queenMoves(side, board, validMoves, pieces);
             move = move.substr(1);
             break;
         case 'K':
-            kingMoves(side, board, validMoves);
+            kingMoves(side, board, validMoves, pieces);
             move = move.substr(1);
             break;
         default:
-            pawnMoves(side, board, validMoves);
+            pawnMoves(side, board, validMoves, pieces);
             break;
         }
         if(find(move.begin(), move.end(), 'x') != move.end()) {

@@ -2,6 +2,7 @@
 //#define DEBUG
 using namespace std;
 unsigned long long bitboard[BITBOARD_SIZE];
+int piece_board[64];
 
 inline unsigned long long findMagicBishop(int pos) {
     int variations = 1 << BISHOP_RELEVANT_BITS[pos];
@@ -527,8 +528,9 @@ inline void computeMasks(int side, unsigned long long board[]) {
     kingCompute(side, board);
 }
 
-inline void setPosition(string fen, unsigned long long board[]) {
+inline void setPosition(string fen, unsigned long long board[], int pieces[]) {
     fill(board, board + BITBOARD_SIZE, 0);
+    fill(pieces, pieces + 64, -1);
     int curr = 56;
     for(int i = 0; i < fen[i] != ' '; i++, curr++) {
         if(fen[i] == ' ') {
@@ -547,42 +549,54 @@ inline void setPosition(string fen, unsigned long long board[]) {
                 switch(fen[i]) {
                     case 'p':
                         board[BLACK + PAWN] += 1ULL << curr;
+                        pieces[curr] = PAWN;
                         break;
                     case 'n':
                         board[BLACK + KNIGHT] += 1ULL << curr;
+                        pieces[curr] = KNIGHT;
                         break;
                     case 'b':
                         board[BLACK + BISHOP] += 1ULL << curr;
+                        pieces[curr] = BISHOP;
                         break;
                     case 'r':
                         board[BLACK + ROOK] += 1ULL << curr;
+                        pieces[curr] = ROOK;
                         break;
                     case 'q':
                         board[BLACK + QUEEN] += 1ULL << curr;
+                        pieces[curr] = QUEEN;
                         break;
                     case 'k':
                         board[BLACK + KING] += 1ULL << curr;
+                        pieces[curr] = KING;
                         break;
                 }
             } else {
                 switch(fen[i]) {
                     case 'P':
                         board[WHITE + PAWN] += 1ULL << curr;
+                        pieces[curr] = PAWN;
                         break;
                     case 'N':
                         board[WHITE + KNIGHT] += 1ULL << curr;
+                        pieces[curr] = KNIGHT;
                         break;
                     case 'B':
                         board[WHITE + BISHOP] += 1ULL << curr;
+                        pieces[curr] = BISHOP;
                         break;
                     case 'R':
                         board[WHITE + ROOK] += 1ULL << curr;
+                        pieces[curr] = ROOK;
                         break;
                     case 'Q':
                         board[WHITE + QUEEN] += 1ULL << curr;
+                        pieces[curr] = QUEEN;
                         break;
                     case 'K':
                         board[WHITE + KING] += 1ULL << curr;
+                        pieces[curr] = KING;
                         break;
                 }
             }
@@ -632,7 +646,7 @@ inline void setPosition(string fen, unsigned long long board[]) {
     
 }   
 
-inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long occupied_white = board[OCCUPANCY_WHITE];
     unsigned long long occupied_black = board[OCCUPANCY_BLACK];
     unsigned long long unoccupied = ~(board[OCCUPANCY]);
@@ -720,17 +734,18 @@ inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned
     took &= ~A_FILE & board[CHECKMASK];
     for(unsigned long long i = took; i != 0; i -= i&-i) {
         int to = bitscan(i&-i);
+        int piece = (pieces[to] != -1 ? pieces[to] : PAWN);
         int from = (side == WHITE) ? (to - 9) : (to + 7);
         //promotion
         if(to / 8 == ((side == WHITE) ? 7 : 0)) {
-            moves.push_back(moveToInt(from, to, 3, 0, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 1, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 2, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 3, PAWN));
+            moves.push_back(moveToInt(from, to, 3, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 1, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 2, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 3, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
         } else {
             if(enPassantFile && to == ((side == WHITE ? 40 : 16) + enPassantFile - 1))
-                moves.push_back(moveToInt(from, to, 2, 0, PAWN));
-            else moves.push_back(moveToInt(from, to, 0, 0, PAWN));
+                moves.push_back(moveToInt(from, to, 2, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            else moves.push_back(moveToInt(from, to, 0, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
         }
     }
 
@@ -782,22 +797,23 @@ inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned
     took &= ~H_FILE & board[CHECKMASK];
     for(unsigned long long i = took; i != 0; i -= i&-i) {
         int to = bitscan(i&-i);
+        int piece = (pieces[to] != -1 ? pieces[to] : PAWN);
         int from = (side == WHITE) ? (to - 7) : (to + 9);
         //promotion
         if(to / 8 == ((side == WHITE) ? 7 : 0)) {
-            moves.push_back(moveToInt(from, to, 3, 0, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 1, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 2, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 3, PAWN));
+            moves.push_back(moveToInt(from, to, 3, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 1, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 2, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 3, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
         } else {
             if(enPassantFile && to == ((side == WHITE ? 40 : 16) + enPassantFile - 1))
-                moves.push_back(moveToInt(from, to, 2, 0, PAWN));
-            else moves.push_back(moveToInt(from, to, 0, 0, PAWN));
+                moves.push_back(moveToInt(from, to, 2, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            else moves.push_back(moveToInt(from, to, 0, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
         }
     }
 }
 
-inline void pawnMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void pawnMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long occupied_white = board[OCCUPANCY_WHITE];
     unsigned long long occupied_black = board[OCCUPANCY_BLACK];
     unsigned long long unoccupied = ~(board[OCCUPANCY]);
@@ -851,17 +867,18 @@ inline void pawnMovesCaptures(int side, unsigned long long board[], fixedVector<
     took &= ~A_FILE & board[CHECKMASK];
     for(unsigned long long i = took; i != 0; i -= i&-i) {
         int to = bitscan(i&-i);
+        int piece = (pieces[to] != -1 ? pieces[to] : PAWN);;
         int from = (side == WHITE) ? (to - 9) : (to + 7);
         //promotion
         if(to / 8 == ((side == WHITE) ? 7 : 0)) {
-            moves.push_back(moveToInt(from, to, 3, 0, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 1, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 2, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 3, PAWN));
+            moves.push_back(moveToInt(from, to, 3, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 1, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 2, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 3, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
         } else {
             if(enPassantFile && to == ((side == WHITE ? 40 : 16) + enPassantFile - 1))
-                moves.push_back(moveToInt(from, to, 2, 0, PAWN));
-            else moves.push_back(moveToInt(from, to, 0, 0, PAWN));
+                moves.push_back(moveToInt(from, to, 2, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            else moves.push_back(moveToInt(from, to, 0, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
         }
     }
 
@@ -913,22 +930,23 @@ inline void pawnMovesCaptures(int side, unsigned long long board[], fixedVector<
     took &= ~H_FILE & board[CHECKMASK];
     for(unsigned long long i = took; i != 0; i -= i&-i) {
         int to = bitscan(i&-i);
+        int piece = (pieces[to] != -1 ? pieces[to] : PAWN);
         int from = (side == WHITE) ? (to - 7) : (to + 9);
         //promotion
         if(to / 8 == ((side == WHITE) ? 7 : 0)) {
-            moves.push_back(moveToInt(from, to, 3, 0, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 1, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 2, PAWN));
-            moves.push_back(moveToInt(from, to, 3, 3, PAWN));
+            moves.push_back(moveToInt(from, to, 3, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 1, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 2, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            moves.push_back(moveToInt(from, to, 3, 3, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
         } else {
             if(enPassantFile && to == ((side == WHITE ? 40 : 16) + enPassantFile - 1))
-                moves.push_back(moveToInt(from, to, 2, 0, PAWN));
-            else moves.push_back(moveToInt(from, to, 0, 0, PAWN));
+                moves.push_back(moveToInt(from, to, 2, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
+            else moves.push_back(moveToInt(from, to, 0, 0, PAWN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[PAWN]));
         }
     }
 }
 
-inline void pawnMovesPromotions(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void pawnMovesPromotions(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long unoccupied = ~(board[OCCUPANCY]);
     //single push
     unsigned long long pawns = board[side + PAWN];
@@ -954,7 +972,7 @@ inline void pawnMovesPromotions(int side, unsigned long long board[], fixedVecto
     }
 }
 
-inline void knightMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void knightMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     unsigned long long pins = board[HV] | board[D12];
     for(unsigned long long i = board[side + KNIGHT]; i != 0; i -= i&-i) {
@@ -963,12 +981,17 @@ inline void knightMoves(int side, unsigned long long board[], fixedVector<unsign
         unsigned long long moveMap = KNIGHT_MASK[position] & notSameColor & board[CHECKMASK];
         for(unsigned long long j = moveMap; j != 0; j -= j&-j) {
             int to = bitscan(j&-j);
-            moves.push_back(moveToInt(position, to, 0, 0, KNIGHT));
+            int piece = pieces[to];
+            if(piece != -1) {
+                moves.push_back(moveToInt(position, to, 0, 0, KNIGHT, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[KNIGHT]));
+            } else {
+                moves.push_back(moveToInt(position, to, 0, 0, KNIGHT));
+            }
         }
     }
 }
 
-inline void knightMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void knightMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     unsigned long long pins = board[HV] | board[D12];
     for(unsigned long long i = board[side + KNIGHT]; i != 0; i -= i&-i) {
@@ -977,19 +1000,25 @@ inline void knightMovesCaptures(int side, unsigned long long board[], fixedVecto
         unsigned long long moveMap = KNIGHT_MASK[position] & notSameColor & board[OCCUPANCY] & board[CHECKMASK];
         for(unsigned long long j = moveMap; j != 0; j -= j&-j) {
             int to = bitscan(j&-j);
-            moves.push_back(moveToInt(position, to, 0, 0, KNIGHT));
+            int piece = pieces[to];
+            moves.push_back(moveToInt(position, to, 0, 0, KNIGHT, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[KNIGHT]));
         }
     }
 }
 
-inline void kingMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void kingMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     unsigned long long occupied = board[OCCUPANCY];
     int position = bitscan(board[side + KING]);
     unsigned long long moveMap = KING_MASK[position] & notSameColor & ~board[ATTACK_MASK];
     for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
         int to = bitscan(i&-i);
+        int piece = pieces[to];
+        if(piece != -1) {
+            moves.push_back(moveToInt(position, to, 0, 0, KING, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[KING]));
+        } else {
             moves.push_back(moveToInt(position, to, 0, 0, KING));
+        }
     }
 
     //kingside castle w
@@ -1022,18 +1051,19 @@ inline void kingMoves(int side, unsigned long long board[], fixedVector<unsigned
     }
 }
 
-inline void kingMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void kingMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     unsigned long long occupied = board[OCCUPANCY];
     int position = bitscan(board[side + KING]);
     unsigned long long moveMap = KING_MASK[position] & notSameColor & board[OCCUPANCY] & ~board[ATTACK_MASK];
     for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
         int to = bitscan(i&-i);
-            moves.push_back(moveToInt(position, to, 0, 0, KING));
+        int piece = pieces[to];
+        moves.push_back(moveToInt(position, to, 0, 0, KING, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[KING]));
     }
 }
 
-inline void bishopMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void bishopMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long occupied = board[OCCUPANCY];
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     for(unsigned long long i = board[side + BISHOP]; i != 0; i -= i&-i) {
@@ -1045,12 +1075,17 @@ inline void bishopMoves(int side, unsigned long long board[], fixedVector<unsign
         }
         for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
             int to = bitscan(i&-i);
-            moves.push_back(moveToInt(position, to, 0, 0, BISHOP));
+            int piece = pieces[to];
+            if(piece != -1) {
+                moves.push_back(moveToInt(position, to, 0, 0, BISHOP, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[BISHOP]));
+            } else {
+                moves.push_back(moveToInt(position, to, 0, 0, BISHOP));
+            }
         }
     }
 }
 
-inline void bishopMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void bishopMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long occupied = board[OCCUPANCY];
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     for(unsigned long long i = board[side + BISHOP]; i != 0; i -= i&-i) {
@@ -1062,12 +1097,13 @@ inline void bishopMovesCaptures(int side, unsigned long long board[], fixedVecto
         }
         for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
             int to = bitscan(i&-i);
-            moves.push_back(moveToInt(position, to, 0, 0, BISHOP));
+            int piece = pieces[to];
+            moves.push_back(moveToInt(position, to, 0, 0, BISHOP, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[BISHOP]));
         }
     }
 }
 
-inline void rookMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void rookMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long occupied = board[OCCUPANCY];
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     for(unsigned long long i = board[side + ROOK]; i != 0; i -= i&-i) {
@@ -1079,12 +1115,17 @@ inline void rookMoves(int side, unsigned long long board[], fixedVector<unsigned
         }
         for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
             int to = bitscan(i&-i);
-            moves.push_back(moveToInt(position, to, 0, 0, ROOK));
+            int piece = pieces[to];
+            if(piece != -1) {
+                moves.push_back(moveToInt(position, to, 0, 0, ROOK, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[ROOK]));
+            } else {
+                moves.push_back(moveToInt(position, to, 0, 0, ROOK));
+            }
         }
     }
 }
 
-inline void rookMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void rookMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long occupied = board[OCCUPANCY];
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     for(unsigned long long i = board[side + ROOK]; i != 0; i -= i&-i) {
@@ -1096,12 +1137,13 @@ inline void rookMovesCaptures(int side, unsigned long long board[], fixedVector<
         }
         for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
             int to = bitscan(i&-i);
-            moves.push_back(moveToInt(position, to, 0, 0, ROOK));
+            int piece = pieces[to];
+            moves.push_back(moveToInt(position, to, 0, 0, ROOK, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[ROOK]));
         }
     }
 }
 
-inline void queenMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void queenMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long occupied = board[OCCUPANCY];
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     for(unsigned long long i = board[side + QUEEN]; i != 0; i -= i&-i) {
@@ -1114,7 +1156,12 @@ inline void queenMoves(int side, unsigned long long board[], fixedVector<unsigne
             }
             for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
                 int to = bitscan(i&-i);
-                moves.push_back(moveToInt(position, to, 0, 0, QUEEN));
+                int piece = pieces[to];
+                if(piece != -1) {
+                    moves.push_back(moveToInt(position, to, 0, 0, QUEEN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[QUEEN]));
+                } else {
+                    moves.push_back(moveToInt(position, to, 0, 0, QUEEN));
+                }
             }
         }
         if(!((i&-i) & board[D12])) {
@@ -1124,13 +1171,18 @@ inline void queenMoves(int side, unsigned long long board[], fixedVector<unsigne
             }
             for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
                 int to = bitscan(i&-i);
-                moves.push_back(moveToInt(position, to, 0, 0, QUEEN));
+                int piece = pieces[to];
+                if(piece != -1) {
+                    moves.push_back(moveToInt(position, to, 0, 0, QUEEN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[QUEEN]));
+                } else {
+                    moves.push_back(moveToInt(position, to, 0, 0, QUEEN));
+                }
             }
         }
     }
 }
 
-inline void queenMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
+inline void queenMovesCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
     unsigned long long occupied = board[OCCUPANCY];
     unsigned long long notSameColor = ~(side == WHITE ? board[OCCUPANCY_WHITE] : board[OCCUPANCY_BLACK]);
     for(unsigned long long i = board[side + QUEEN]; i != 0; i -= i&-i) {
@@ -1143,7 +1195,8 @@ inline void queenMovesCaptures(int side, unsigned long long board[], fixedVector
             }
             for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
                 int to = bitscan(i&-i);
-                moves.push_back(moveToInt(position, to, 0, 0, QUEEN));
+                int piece = pieces[to];
+                moves.push_back(moveToInt(position, to, 0, 0, QUEEN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[QUEEN]));
             }
         }
         if(!((i&-i) & board[D12])) {
@@ -1153,13 +1206,14 @@ inline void queenMovesCaptures(int side, unsigned long long board[], fixedVector
             }
             for(unsigned long long i = moveMap; i != 0; i -= i&-i) {
                 int to = bitscan(i&-i);
-                moves.push_back(moveToInt(position, to, 0, 0, QUEEN));
+                int piece = pieces[to];
+                moves.push_back(moveToInt(position, to, 0, 0, QUEEN, 8 * (PIECE_WEIGHTS[piece] + 1) - PIECE_WEIGHTS[QUEEN]));
             }
         }
     }
 }
 
-inline void makeMove(unsigned int move, unsigned long long board[]) {
+inline void makeMove(unsigned int move, unsigned long long board[], int pieces[]) {
     unsigned long long from = 1ULL << (move & 0x3FULL);
     unsigned long long to = 1ULL << ((move >> 6) & 0x3FULL);
     int special = (move >> 12) & 0x3ULL;
@@ -1168,14 +1222,9 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
     int piece = ((move >> 16) & 0x7ULL) + side;
     bool capture = (side == WHITE ? board[OCCUPANCY_BLACK] : board[OCCUPANCY_WHITE]) & to;
     if(capture) {        
-        int taken;
-        for(int i = BLACK - side; i < BLACK - side + 6; i++) {
-            if(board[i] & to) {
-                taken = i;
-                break;
-            }
-        }
+        int taken = BLACK - side + pieces[bitscan(to)];
         board[taken] -= to;
+        pieces[bitscan(to)] = taken - side;
         board[HASH] ^= ZOBRIST_BITSTRINGS[bitscan(to)][taken];
     }
     if(special != 3) {
@@ -1208,6 +1257,7 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
             }
         }
         board[piece] -= from;
+        pieces[bitscan(from)] = -1;
         board[HASH] ^= ZOBRIST_BITSTRINGS[bitscan(from)][piece];
         int toSquare = bitscan(to);
         //if a rook is taken revoke castle ability
@@ -1224,19 +1274,24 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
             board[GAME_STATE] = setBit(board[GAME_STATE], 2, 0);
         }
         board[piece] += to;
+        pieces[bitscan(to)] = piece - side;
         board[HASH] ^= ZOBRIST_BITSTRINGS[bitscan(to)][piece];
         if(special == 1) {
             if(side == WHITE) {
                 if(toSquare == 6) {
                     board[WHITE + ROOK] -= (1ULL << 7);
+                    pieces[7] = -1;
                     board[WHITE + ROOK] += (1ULL << 5);
+                    pieces[5] = ROOK;
                     board[HASH] ^= ZOBRIST_BITSTRINGS[7][WHITE + ROOK];
                     board[HASH] ^= ZOBRIST_BITSTRINGS[5][WHITE + ROOK];
                     board[GAME_STATE] = setBit(board[GAME_STATE], 0, 0);
                     board[GAME_STATE] = setBit(board[GAME_STATE], 1, 0);
                 } else {
                     board[WHITE + ROOK] -= 1;
+                    pieces[0] = -1; 
                     board[WHITE + ROOK] += (1ULL << 3);
+                    pieces[3] = ROOK;
                     board[HASH] ^= ZOBRIST_BITSTRINGS[0][WHITE + ROOK];
                     board[HASH] ^= ZOBRIST_BITSTRINGS[3][WHITE + ROOK];
                     board[GAME_STATE] = setBit(board[GAME_STATE], 0, 0);
@@ -1245,14 +1300,18 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
             } else {
                 if(toSquare == 62) {
                     board[BLACK + ROOK] -= (1ULL << 63);
+                    pieces[63] = -1;
                     board[BLACK + ROOK] += (1ULL << 61);
+                    pieces[61] = ROOK;
                     board[HASH] ^= ZOBRIST_BITSTRINGS[63][BLACK + ROOK];
                     board[HASH] ^= ZOBRIST_BITSTRINGS[61][BLACK + ROOK];
                     board[GAME_STATE] = setBit(board[GAME_STATE], 2, 0);
                     board[GAME_STATE] = setBit(board[GAME_STATE], 3, 0);
                 } else {
                     board[BLACK + ROOK] -= (1ULL << 56);
+                    pieces[56]= -1;
                     board[BLACK + ROOK] += (1ULL << 59);
+                    pieces[59] = ROOK;
                     board[HASH] ^= ZOBRIST_BITSTRINGS[56][BLACK + ROOK];
                     board[HASH] ^= ZOBRIST_BITSTRINGS[59][BLACK + ROOK];
                     board[GAME_STATE] = setBit(board[GAME_STATE], 2, 0);
@@ -1263,12 +1322,15 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
         if(special == 2) {
             unsigned long long pawn = (side == WHITE ? (to >> 8) : (to << 8));
             board[BLACK - side + PAWN] -= pawn;
+            pieces[bitscan(pawn)] = -1;
             board[HASH] ^= ZOBRIST_BITSTRINGS[bitscan(pawn)][BLACK - side + PAWN];
         }
     } else {
         board[piece] -= from;
+        pieces[bitscan(from)] = -1;
         board[HASH] ^= ZOBRIST_BITSTRINGS[bitscan(from)][piece];
         board[1 + side + promotion] += to;
+        pieces[bitscan(to)] = 1 + promotion;
         board[HASH] ^= ZOBRIST_BITSTRINGS[bitscan(to)][1 + side + promotion];
         int toSquare = bitscan(to);
         if(side == BLACK && (board[GAME_STATE] & 0x2ULL) != 0 && toSquare == 0) {
@@ -1296,29 +1358,29 @@ inline void makeMove(unsigned int move, unsigned long long board[]) {
     board[HASH] ^= ZOBRIST_BLACK_TO_MOVE;
 }
 
-inline void generateMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
-    pawnMoves(side, board, moves);
-    knightMoves(side, board, moves);
-    bishopMoves(side, board, moves);
-    rookMoves(side, board, moves);
-    queenMoves(side, board, moves);
-    kingMoves(side, board, moves);
+inline void generateMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
+    pawnMoves(side, board, moves, pieces);
+    knightMoves(side, board, moves, pieces);
+    bishopMoves(side, board, moves, pieces);
+    rookMoves(side, board, moves, pieces);
+    queenMoves(side, board, moves, pieces);
+    kingMoves(side, board, moves, pieces);
 }
 
-inline void generateCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves) {
-    pawnMovesCaptures(side, board, moves);
-    pawnMovesPromotions(side, board, moves);
-    knightMovesCaptures(side, board, moves);
-    bishopMovesCaptures(side, board, moves);
-    rookMovesCaptures(side, board, moves);
-    queenMovesCaptures(side, board, moves);
-    kingMovesCaptures(side, board, moves);
+inline void generateCaptures(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
+    pawnMovesCaptures(side, board, moves, pieces);
+    pawnMovesPromotions(side, board, moves, pieces);
+    knightMovesCaptures(side, board, moves, pieces);
+    bishopMovesCaptures(side, board, moves, pieces);
+    rookMovesCaptures(side, board, moves, pieces);
+    queenMovesCaptures(side, board, moves, pieces);
+    kingMovesCaptures(side, board, moves, pieces);
 }
 
-inline unsigned long long perft(int depth, unsigned long long board[], bool debug=false) {
+inline unsigned long long perft(int depth, unsigned long long board[], int pieces[], bool debug=false) {
     int side = getSide(board);
     fixedVector<unsigned int> moves;
-    generateMoves(side, board, moves);
+    generateMoves(side, board, moves, pieces);
     unsigned long long nodes = 0;
     if(depth <= 1) {
         return moves.size; 
@@ -1327,9 +1389,11 @@ inline unsigned long long perft(int depth, unsigned long long board[], bool debu
         unsigned int curr = moves.arr[i];
         if(debug) cout << intToCoord(curr & 0x3F) << intToCoord((curr >> 6) & 0x3F) << ": ";
         unsigned long long boardcpy[BITBOARD_SIZE];
+        int piececpy[64];
         copy(board, board + BITBOARD_SIZE, boardcpy);
-        makeMove(curr, boardcpy);
-        unsigned long long current = perft(depth - 1, boardcpy);
+        copy(pieces, pieces + 64, piececpy);
+        makeMove(curr, boardcpy, piececpy);
+        unsigned long long current = perft(depth - 1, boardcpy, piececpy);
         if(debug) cout << current << "\n";
         nodes += current;
     }
@@ -1337,11 +1401,11 @@ inline unsigned long long perft(int depth, unsigned long long board[], bool debu
 }
 
 inline unsigned long long perft(int depth, string fen) {
-    setPosition(fen, bitboard);
+    setPosition(fen, bitboard, piece_board);
     #ifdef DEBUG
     return perft(depth, bitboard, true);
     #else
-    return perft(depth, bitboard, false);
+    return perft(depth, bitboard, piece_board, false);
     #endif
 }
 
@@ -1356,7 +1420,7 @@ double evaluate(unsigned long long board[]) {
     return result;
 }
 
-double quiescenceSearch(double alpha, double beta, unsigned long long board[]) {
+double quiescenceSearch(double alpha, double beta, unsigned long long board[], int pieces[]) {
     int side = getSide(board);
     double best = evaluate(board) * (side == WHITE ? 1 : -1);
     computeMasks(side, board);
@@ -1371,21 +1435,25 @@ double quiescenceSearch(double alpha, double beta, unsigned long long board[]) {
 
     fixedVector<unsigned int> moves;
     if(isCheck) {
-        generateMoves(side, board, moves);
+        generateMoves(side, board, moves, pieces);
         if(moves.size == 0) {
             if(board[CHECKMASK] == MAX) return 0;
             else return -10000;
         }
+        moves.sort();
     } else {
-        generateCaptures(side, board, moves);
+        generateCaptures(side, board, moves, pieces);
+        moves.sort();
     }
 
     for(int i = 0; i < moves.size; i++) {
         unsigned int curr = moves.arr[i];
         unsigned long long boardcpy[BITBOARD_SIZE];
+        int piececpy[64];
         copy(board, board + BITBOARD_SIZE, boardcpy);
-        makeMove(curr, boardcpy);
-        double currValue = -quiescenceSearch(-beta, -alpha, boardcpy);
+        copy(pieces, pieces + 64, piececpy);
+        makeMove(curr, boardcpy, piececpy);
+        double currValue = -quiescenceSearch(-beta, -alpha, boardcpy, piececpy);
         if(best < currValue) {
             best = currValue;
         }
@@ -1396,14 +1464,15 @@ double quiescenceSearch(double alpha, double beta, unsigned long long board[]) {
     return best;
 }
 
-pair<unsigned int, double> negamax(int depth, double alpha, double beta, unsigned long long board[]) {
+pair<unsigned int, double> negamax(int depth, double alpha, double beta, unsigned long long board[], int pieces[]) {
     int side = getSide(board);
     if(depth == 0) {
-        return {0, quiescenceSearch(alpha, beta, board)};
+        return {0, quiescenceSearch(alpha, beta, board, pieces)};
     }
 
     fixedVector<unsigned int> moves;
-    generateMoves(side, board, moves);
+    generateMoves(side, board, moves, pieces);
+    moves.sort();
 
     if(moves.size == 0) {
         if(board[CHECKMASK] == MAX) return {0, 0};
@@ -1414,9 +1483,11 @@ pair<unsigned int, double> negamax(int depth, double alpha, double beta, unsigne
     for(int i = 0; i < moves.size; i++) {
         unsigned int curr = moves.arr[i];
         unsigned long long boardcpy[BITBOARD_SIZE];
+        int piececpy[64];
         copy(board, board + BITBOARD_SIZE, boardcpy);
-        makeMove(curr, boardcpy);
-        pair<unsigned int, double> currMove = negamax(depth - 1, -beta, -alpha, boardcpy);
+        copy(pieces, pieces + 64, piececpy);
+        makeMove(curr, boardcpy, piececpy);
+        pair<unsigned int, double> currMove = negamax(depth - 1, -beta, -alpha, boardcpy, piececpy);
         if(value < -currMove.second) {
             value = -currMove.second;
             current = curr;
