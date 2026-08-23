@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <cassert>
+#include <cstring>
 const int PAWN = 0;
 const int KNIGHT = 1;
 const int BISHOP = 2;

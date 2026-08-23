@@ -1347,14 +1347,6 @@ inline unsigned long long perft(int depth, string fen) {
 
 double evaluate(unsigned long long board[]) {
     double result = 0;
-    fixedVector<unsigned int> a;
-    computeMasks(WHITE, board);
-    generateMoves(WHITE, board, a);
-    result += (double) a.size / 100.;
-    fixedVector<unsigned int> b;
-    computeMasks(BLACK, board);
-    generateMoves(BLACK, board, b);
-    result -= (double) b.size / 100.;
     result += __builtin_popcountll(board[WHITE + PAWN]) - __builtin_popcountll(board[BLACK + PAWN]);
     result += 2.7 * __builtin_popcountll(board[WHITE + KNIGHT]) - 2.7 * __builtin_popcountll(board[BLACK + KNIGHT]);
     result += 2.9 * __builtin_popcountll(board[WHITE + BISHOP]) - 2.9 * __builtin_popcountll(board[BLACK + BISHOP]);
