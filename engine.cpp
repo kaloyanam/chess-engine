@@ -3,6 +3,7 @@
 using namespace std;
 unsigned long long bitboard[BITBOARD_SIZE];
 int piece_board[64];
+historyVector positions;
 
 inline unsigned long long findMagicBishop(int pos) {
     int variations = 1 << BISHOP_RELEVANT_BITS[pos];
@@ -639,11 +640,21 @@ inline void setPosition(string fen, unsigned long long board[], int pieces[]) {
         curr += 2;
     } else {
         board[GAME_STATE] += ((fen[curr] - 'a' + 1) << 4);
+        curr += 2;
+        if(fen[curr] == ' ') curr++;
     }
     board[GAME_STATE] += (1ULL << 32) * (move == BLACK);
+
+    board[GAME_STATE] &= HALF_MOVES_CLEAR;
+    unsigned long long halfMoves = 0;
+    while(isdigit(fen[curr])) {
+        halfMoves = 10 * halfMoves + (fen[curr] - '0');
+        curr++;
+    }
+    board[GAME_STATE] += (halfMoves << 8);
     computeMasks(move, board);
     board[HASH] = zobrist(board);
-    
+    positions.push(board[HASH]);
 }   
 
 inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
@@ -1227,6 +1238,8 @@ inline void makeMove(unsigned int move, unsigned long long board[], int pieces[]
         pieces[bitscan(to)] = taken - side;
         board[HASH] ^= ZOBRIST_BITSTRINGS[bitscan(to)][taken];
     }
+    if(capture || (piece - side) == PAWN) board[GAME_STATE] &= HALF_MOVES_CLEAR;
+    else board[GAME_STATE] += (1ULL << 8);
     if(special != 3) {
         if(special == 0) {
             //if king or rook moved, revoke castle ability
@@ -1356,6 +1369,7 @@ inline void makeMove(unsigned int move, unsigned long long board[], int pieces[]
     computeMasks(side, board);
     board[GAME_STATE] = setBit(board[GAME_STATE], 32, (side == BLACK));
     board[HASH] ^= ZOBRIST_BLACK_TO_MOVE;
+    positions.push(board[HASH]);
 }
 
 inline void generateMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]) {
@@ -1433,12 +1447,13 @@ double quiescenceSearch(double alpha, double beta, unsigned long long board[], i
         best = -20000;
     }
 
+    if(isDraw(board, positions, 2)) return 0;
+
     fixedVector<unsigned int> moves;
     if(isCheck) {
         generateMoves(side, board, moves, pieces);
         if(moves.size == 0) {
-            if(board[CHECKMASK] == MAX) return 0;
-            else return -10000;
+            return -10000;
         }
         moves.sort();
     } else {
@@ -1454,6 +1469,7 @@ double quiescenceSearch(double alpha, double beta, unsigned long long board[], i
         copy(pieces, pieces + 64, piececpy);
         makeMove(curr, boardcpy, piececpy);
         double currValue = -quiescenceSearch(-beta, -alpha, boardcpy, piececpy);
+        positions.pop();
         if(best < currValue) {
             best = currValue;
         }
@@ -1478,6 +1494,7 @@ pair<unsigned int, double> negamax(int depth, double alpha, double beta, unsigne
         if(board[CHECKMASK] == MAX) return {0, 0};
         else return {0, -10000};
     }
+    if(isDraw(board, positions, 2)) return {0, 0};
     unsigned int current;
     double value = -20000;
     for(int i = 0; i < moves.size; i++) {
@@ -1488,6 +1505,7 @@ pair<unsigned int, double> negamax(int depth, double alpha, double beta, unsigne
         copy(pieces, pieces + 64, piececpy);
         makeMove(curr, boardcpy, piececpy);
         pair<unsigned int, double> currMove = negamax(depth - 1, -beta, -alpha, boardcpy, piececpy);
+        positions.pop();
         if(value < -currMove.second) {
             value = -currMove.second;
             current = curr;

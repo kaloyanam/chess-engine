@@ -21,6 +21,13 @@ struct fixedVector {
     }
 };
 
+struct historyVector {
+    unsigned long long arr[MAX_HISTORY];
+    int size = 0;
+    void push(unsigned long long hash) {arr[size++] = hash;}
+    void pop() {size--;}
+};
+
 inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void knightMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void bishopMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
@@ -217,4 +224,18 @@ inline unsigned int moveToInt(string move, unsigned long long board[], int piece
 
 inline unsigned long long setBit(unsigned long long number, int n, int x) {
     return number ^ ((-x ^ number) & (1ULL << n));
+}
+
+inline bool isRepetition(unsigned long long board[], const historyVector& history, int repetitions) {
+    unsigned long long curr = history.arr[history.size - 1];
+    int counter = 0;
+    for(int i = history.size - 3; i >= 0 && i >= history.size - 1 - ((board[GAME_STATE] & 0xFFF00) >> 8); i -= 2) {
+        if(history.arr[i] == curr) counter++;
+        if(counter >= repetitions - 1) return true;
+    }
+    return false;
+}
+
+inline bool isDraw(unsigned long long board[], const historyVector& history, int repetitions) {
+    return isRepetition(board, history, repetitions) || (((board[GAME_STATE] & 0xFFF00) >> 8) >= 100);
 }

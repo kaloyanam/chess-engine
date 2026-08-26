@@ -43,6 +43,7 @@ bits 16-18 - piece moved
 bits 19-25 - mvv-lva rating (0 - non capture)
 */
 constexpr int PIECE_WEIGHTS[6] = {1, 3, 3, 5, 9, 15};
+constexpr int MAX_HISTORY = 4096;
 constexpr int INDEX64[64] = {
    63,  0, 58,  1, 59, 47, 53,  2,
    60, 39, 48, 27, 54, 33, 42,  3,
@@ -210,6 +211,7 @@ unsigned long long ROOK_MAGIC[64] =
 1441732432581099652ULL, 
 1152952326368166150ULL};
 std::unordered_map<unsigned long long, std::vector<unsigned int>> transpositionTable;
+const unsigned long long HALF_MOVES_CLEAR = 0xFFFFFFFFFFF000FF;
 const unsigned long long A_FILE = 0x101010101010101ULL;
 const unsigned long long B_FILE = 0x202020202020202ULL;
 const unsigned long long C_FILE = 0x404040404040404ULL;
