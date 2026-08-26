@@ -21,7 +21,7 @@ int main() {
         int side = getSide(bitboard);
         if(side == engineSide) {
             unsigned long long begin = currentMillis();
-            unsigned move = negamax(9, -20000, 20000, bitboard, piece_board).first;
+            unsigned int move = negamax<evaluateOld>(0, 9, -INF, INF, bitboard, piece_board).first;
             cout << "Elapsed time: " << (currentMillis() - begin) << " ms\n";
             printMove(move);
             cout << "\n";

@@ -1423,20 +1423,81 @@ inline unsigned long long perft(int depth, string fen) {
     #endif
 }
 
-double evaluate(unsigned long long board[]) {
+int evaluateOld(unsigned long long board[]) {
     double result = 0;
     result += __builtin_popcountll(board[WHITE + PAWN]) - __builtin_popcountll(board[BLACK + PAWN]);
-    result += 2.7 * __builtin_popcountll(board[WHITE + KNIGHT]) - 2.7 * __builtin_popcountll(board[BLACK + KNIGHT]);
-    result += 2.9 * __builtin_popcountll(board[WHITE + BISHOP]) - 2.9 * __builtin_popcountll(board[BLACK + BISHOP]);
-    result += 4.9 * __builtin_popcountll(board[WHITE + ROOK]) - 4.9 * __builtin_popcountll(board[BLACK + ROOK]);
-    result += 9.6 * __builtin_popcountll(board[WHITE + QUEEN]) - 9.6 * __builtin_popcountll(board[BLACK + QUEEN]);
-    result = round(result * 100) / 100.;
+    result += 270 * __builtin_popcountll(board[WHITE + KNIGHT]) - 270 * __builtin_popcountll(board[BLACK + KNIGHT]);
+    result += 290 * __builtin_popcountll(board[WHITE + BISHOP]) - 290 * __builtin_popcountll(board[BLACK + BISHOP]);
+    result += 490 * __builtin_popcountll(board[WHITE + ROOK]) - 490 * __builtin_popcountll(board[BLACK + ROOK]);
+    result += 960 * __builtin_popcountll(board[WHITE + QUEEN]) - 960 * __builtin_popcountll(board[BLACK + QUEEN]);
     return result;
 }
 
-double quiescenceSearch(double alpha, double beta, unsigned long long board[], int pieces[]) {
+int evaluateNew(unsigned long long board[]) {
+    int mg = 0;
+    int eg = 0;
+    int gamePhase = 0;
+    for(unsigned long long i = board[WHITE + PAWN]; i != 0; i -= i&-i) {
+        mg += MG_TABLE[WHITE + PAWN][bitscan(i&-i)];
+        eg += EG_TABLE[WHITE + PAWN][bitscan(i&-i)];
+    }
+    for(unsigned long long i = board[WHITE + KNIGHT]; i != 0; i -= i&-i) {
+        mg += MG_TABLE[WHITE + KNIGHT][bitscan(i&-i)];
+        eg += EG_TABLE[WHITE + KNIGHT][bitscan(i&-i)];
+        gamePhase += PHASE_VALUE[KNIGHT];
+    }
+    for(unsigned long long i = board[WHITE + BISHOP]; i != 0; i -= i&-i) {
+        mg += MG_TABLE[WHITE + BISHOP][bitscan(i&-i)];
+        eg += EG_TABLE[WHITE + BISHOP][bitscan(i&-i)];
+        gamePhase += PHASE_VALUE[BISHOP];
+    }
+    for(unsigned long long i = board[WHITE + ROOK]; i != 0; i -= i&-i) {
+        mg += MG_TABLE[WHITE + ROOK][bitscan(i&-i)];
+        eg += EG_TABLE[WHITE + ROOK][bitscan(i&-i)];
+        gamePhase += PHASE_VALUE[ROOK];
+    }
+    for(unsigned long long i = board[WHITE + QUEEN]; i != 0; i -= i&-i) {
+        mg += MG_TABLE[WHITE + QUEEN][bitscan(i&-i)];
+        eg += EG_TABLE[WHITE + QUEEN][bitscan(i&-i)];
+        gamePhase += PHASE_VALUE[QUEEN];
+    }
+    mg += MG_TABLE[WHITE + KING][bitscan(board[WHITE + KING])];
+    eg += EG_TABLE[WHITE + KING][bitscan(board[WHITE + KING])];
+    for(unsigned long long i = board[BLACK + PAWN]; i != 0; i -= i&-i) {
+        mg -= MG_TABLE[BLACK + PAWN][bitscan(i&-i)];
+        eg -= EG_TABLE[BLACK + PAWN][bitscan(i&-i)];
+    }
+    for(unsigned long long i = board[BLACK + KNIGHT]; i != 0; i -= i&-i) {
+        mg -= MG_TABLE[BLACK + KNIGHT][bitscan(i&-i)];
+        eg -= EG_TABLE[BLACK + KNIGHT][bitscan(i&-i)];
+        gamePhase += PHASE_VALUE[KNIGHT];
+    }
+    for(unsigned long long i = board[BLACK + BISHOP]; i != 0; i -= i&-i) {
+        mg -= MG_TABLE[BLACK + BISHOP][bitscan(i&-i)];
+        eg -= EG_TABLE[BLACK + BISHOP][bitscan(i&-i)];
+        gamePhase += PHASE_VALUE[BISHOP];
+    }
+    for(unsigned long long i = board[BLACK + ROOK]; i != 0; i -= i&-i) {
+        mg -= MG_TABLE[BLACK + ROOK][bitscan(i&-i)];
+        eg -= EG_TABLE[BLACK + ROOK][bitscan(i&-i)];
+        gamePhase += PHASE_VALUE[ROOK];
+    }
+    for(unsigned long long i = board[BLACK + QUEEN]; i != 0; i -= i&-i) {
+        mg -= MG_TABLE[BLACK + QUEEN][bitscan(i&-i)];
+        eg -= EG_TABLE[BLACK + QUEEN][bitscan(i&-i)];
+        gamePhase += PHASE_VALUE[QUEEN];
+    }
+    mg -= MG_TABLE[BLACK + KING][bitscan(board[BLACK + KING])];
+    eg -= EG_TABLE[BLACK + KING][bitscan(board[BLACK + KING])];
+
+    return (mg * min(gamePhase, 24) + eg * max(24 - gamePhase, 0)) / 24;
+
+}
+
+template <int (*F) (unsigned long long[])>
+double quiescenceSearch(int ply, double alpha, double beta, unsigned long long board[], int pieces[]) {
     int side = getSide(board);
-    double best = evaluate(board) * (side == WHITE ? 1 : -1);
+    double best = F(board) * (side == WHITE ? 1 : -1);
     computeMasks(side, board);
     bool isCheck = (board[CHECKMASK] != MAX);
 
@@ -1444,7 +1505,7 @@ double quiescenceSearch(double alpha, double beta, unsigned long long board[], i
         if(best >= beta) return best;
         if(best > alpha) alpha = best;
     } else {
-        best = -20000;
+        best = -(MATE - ply);
     }
 
     if(isDraw(board, positions, 2)) return 0;
@@ -1453,7 +1514,7 @@ double quiescenceSearch(double alpha, double beta, unsigned long long board[], i
     if(isCheck) {
         generateMoves(side, board, moves, pieces);
         if(moves.size == 0) {
-            return -10000;
+            return -(MATE - ply);
         }
         moves.sort();
     } else {
@@ -1468,7 +1529,7 @@ double quiescenceSearch(double alpha, double beta, unsigned long long board[], i
         copy(board, board + BITBOARD_SIZE, boardcpy);
         copy(pieces, pieces + 64, piececpy);
         makeMove(curr, boardcpy, piececpy);
-        double currValue = -quiescenceSearch(-beta, -alpha, boardcpy, piececpy);
+        double currValue = -quiescenceSearch<F>(ply + 1, -beta, -alpha, boardcpy, piececpy);
         positions.pop();
         if(best < currValue) {
             best = currValue;
@@ -1480,10 +1541,11 @@ double quiescenceSearch(double alpha, double beta, unsigned long long board[], i
     return best;
 }
 
-pair<unsigned int, double> negamax(int depth, double alpha, double beta, unsigned long long board[], int pieces[]) {
+template <int (*F) (unsigned long long[])>
+pair<unsigned int, double> negamax(int ply, int depth, double alpha, double beta, unsigned long long board[], int pieces[]) {
     int side = getSide(board);
     if(depth == 0) {
-        return {0, quiescenceSearch(alpha, beta, board, pieces)};
+        return {0, quiescenceSearch<F>(ply + 1, alpha, beta, board, pieces)};
     }
 
     fixedVector<unsigned int> moves;
@@ -1492,11 +1554,11 @@ pair<unsigned int, double> negamax(int depth, double alpha, double beta, unsigne
 
     if(moves.size == 0) {
         if(board[CHECKMASK] == MAX) return {0, 0};
-        else return {0, -10000};
+        else return {0, -(MATE - ply)};
     }
     if(isDraw(board, positions, 2)) return {0, 0};
-    unsigned int current;
-    double value = -20000;
+    unsigned int current = moves.arr[0];
+    double value = -200000;
     for(int i = 0; i < moves.size; i++) {
         unsigned int curr = moves.arr[i];
         unsigned long long boardcpy[BITBOARD_SIZE];
@@ -1504,7 +1566,7 @@ pair<unsigned int, double> negamax(int depth, double alpha, double beta, unsigne
         copy(board, board + BITBOARD_SIZE, boardcpy);
         copy(pieces, pieces + 64, piececpy);
         makeMove(curr, boardcpy, piececpy);
-        pair<unsigned int, double> currMove = negamax(depth - 1, -beta, -alpha, boardcpy, piececpy);
+        pair<unsigned int, double> currMove = negamax<F>(ply + 1, depth - 1, -beta, -alpha, boardcpy, piececpy);
         positions.pop();
         if(value < -currMove.second) {
             value = -currMove.second;

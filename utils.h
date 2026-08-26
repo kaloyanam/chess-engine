@@ -28,12 +28,15 @@ struct historyVector {
     void pop() {size--;}
 };
 
+extern historyVector positions;
 inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void knightMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void bishopMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void rookMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void queenMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void kingMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
+inline void generateMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
+inline void makeMove(unsigned int move, unsigned long long board[], int pieces[]);
 
 inline int coordToInt(string coord) {
     return coord[0] - 'a' + (coord[1] - '1') * 8;
@@ -220,6 +223,218 @@ inline unsigned int moveToInt(string move, unsigned long long board[], int piece
     } catch(...) {
         return -1;
     }
+}
+
+inline string intToMove(unsigned int move, unsigned long long board[], int pieces[]) {
+    unsigned long long from = 1ULL << (move & 0x3FULL);
+    unsigned long long to = 1ULL << ((move >> 6) & 0x3FULL);
+    int special = (move >> 12) & 0x3ULL;
+    int promotion = (move >> 14) & 0x3ULL;
+    int side = getSide(board);
+    bool takes = (side == WHITE ? board[OCCUPANCY_BLACK] : board[OCCUPANCY_WHITE]) & 1ULL << ((move >> 6) & 0x3FULL) || special == 2;
+    from = bitscan(from);
+    to = bitscan(to);
+    if(special == 1) {
+        if(to == coordToInt("g1") || to == coordToInt("g8")) {
+            return "O-O";
+        }
+        else {
+            return "O-O-O";
+        }
+    }
+
+    string result = "";
+    fixedVector<unsigned int> moves;
+    switch((move >> 16) & 0x7ULL) {
+    case PAWN:
+        if(takes) {
+            result += intToCoord(from)[0];
+        }
+        break;
+    case KNIGHT: {
+        result += "N";
+        knightMoves(side, board, moves, pieces);
+        vector<string> squares;
+        for(int i = 0; i < moves.size; i++) {
+            unsigned long long dest = bitscan(1ULL << ((moves.arr[i] >> 6) & 0x3FULL));
+            if(dest == to) {
+                squares.push_back(intToCoord(bitscan(1ULL << (moves.arr[i] & 0x3FULL))));
+            }
+        }
+        if(squares.size() > 1) {
+            bool sameFile = false;
+            bool sameRank = false;
+            string source = intToCoord(from);
+            char file = source[0];
+            char rank = source[1];
+            for(int i = 0; i < squares.size(); i++) {
+                if(squares.at(i) == source) continue;
+                if(squares.at(i)[0] == file) {
+                    sameFile = true;
+                }
+                if(squares.at(i)[1] == rank) {
+                    sameRank = true;
+                }
+            }
+            if(sameFile == false ) {
+                result += intToCoord(from)[0];
+            }
+            else if(sameRank == false) {
+                result += intToCoord(from)[1];
+            }
+            else {
+                result += intToCoord(from);
+            }
+         }
+         break;
+    }
+    case BISHOP: {
+        result += "B";
+        bishopMoves(side, board, moves, pieces);
+        vector<string> squares;
+        for(int i = 0; i < moves.size; i++) {
+            unsigned long long dest = bitscan(1ULL << ((moves.arr[i] >> 6) & 0x3FULL));
+            if(dest == to) {
+                squares.push_back(intToCoord(bitscan(1ULL << (moves.arr[i] & 0x3FULL))));
+            }
+        }
+        if(squares.size() > 1) {
+            bool sameFile = false;
+            bool sameRank = false;
+            string source = intToCoord(from);
+            char file = source[0];
+            char rank = source[1];
+            for(int i = 0; i < squares.size(); i++) {
+                if(squares.at(i) == source) continue;
+                if(squares.at(i)[0] == file) {
+                    sameFile = true;
+                }
+                if(squares.at(i)[1] == rank) {
+                    sameRank = true;
+                }
+            }
+            if(sameFile == false ) {
+                result += intToCoord(from)[0];
+            }
+            else if(sameRank == false) {
+                result += intToCoord(from)[1];
+            }
+            else {
+                result += intToCoord(from);
+            }
+         }
+         break;
+    }
+    case ROOK: {
+        result += "R";
+        rookMoves(side, board, moves, pieces);
+        vector<string> squares;
+        for(int i = 0; i < moves.size; i++) {
+            unsigned long long dest = bitscan(1ULL << ((moves.arr[i] >> 6) & 0x3FULL));
+            if(dest == to) {
+                squares.push_back(intToCoord(bitscan(1ULL << (moves.arr[i] & 0x3FULL))));
+            }
+        }
+        if(squares.size() > 1) {
+            bool sameFile = false;
+            bool sameRank = false;
+            char file = squares.at(0)[0];
+            char rank = squares.at(0)[1];
+            for(int i = 1; i < squares.size(); i++) {
+                if(squares.at(i)[0] != file) {
+                    sameFile = true;
+                }
+                if(squares.at(i)[1] != rank) {
+                    sameRank = true;
+                }
+            }
+            if(sameFile == false) {
+                result += intToCoord(from)[1];
+            }
+            else if(sameRank == false) {
+                result += intToCoord(from)[0];
+            } else {
+                result += intToCoord(from)[0];
+            }
+         }
+         break;
+    }
+    case QUEEN: {
+        result += "Q";
+        queenMoves(side, board, moves, pieces);
+        vector<string> squares;
+        for(int i = 0; i < moves.size; i++) {
+            unsigned long long dest = bitscan(1ULL << ((moves.arr[i] >> 6) & 0x3FULL));
+            if(dest == to) {
+                squares.push_back(intToCoord(bitscan(1ULL << (moves.arr[i] & 0x3FULL))));
+            }
+        }
+        if(squares.size() > 1) {
+            bool sameFile = false;
+            bool sameRank = false;
+            string source = intToCoord(from);
+            char file = source[0];
+            char rank = source[1];
+            for(int i = 0; i < squares.size(); i++) {
+                if(squares.at(i) == source) continue;
+                if(squares.at(i)[0] == file) {
+                    sameFile = true;
+                }
+                if(squares.at(i)[1] == rank) {
+                    sameRank = true;
+                }
+            }
+            if(sameFile == false ) {
+                result += intToCoord(from)[0];
+            }
+            else if(sameRank == false) {
+                result += intToCoord(from)[1];
+            }
+            else {
+                result += intToCoord(from);
+            }
+         }
+         break;
+    }
+    case KING:
+        result += "K";
+    }
+    if(takes) {
+        result += "x";
+    }
+    result += intToCoord(to);
+    if(special == 3) {
+        switch (promotion) {
+        case KNIGHT - 1:
+            result += "=N";
+            break;
+        case BISHOP - 1:
+            result += "=B";
+            break;
+        case ROOK - 1:
+            result += "=R";
+            break;
+        case QUEEN - 1:
+            result += "=Q";
+        }
+    }
+
+    unsigned long long boardcpy[BITBOARD_SIZE];
+    int piececpy[64];
+    copy(board, board + BITBOARD_SIZE, boardcpy);
+    copy(pieces, pieces + 64, piececpy);
+    makeMove(move, boardcpy, piececpy);
+    positions.pop();
+    if(boardcpy[CHECKMASK] != MAX) {
+        fixedVector<unsigned int> moves;
+        generateMoves(BLACK - side, boardcpy, moves, piececpy);
+        if(moves.size == 0) {
+            result += "#";
+        } else {
+            result += "+";
+        }
+    }
+    return result;
 }
 
 inline unsigned long long setBit(unsigned long long number, int n, int x) {
