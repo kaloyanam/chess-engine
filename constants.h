@@ -210,7 +210,11 @@ unsigned long long ROOK_MAGIC[64] =
 11673611743816319491ULL, 
 1441732432581099652ULL, 
 1152952326368166150ULL};
-std::unordered_map<unsigned long long, std::vector<unsigned int>> transpositionTable;
+const int TT_BITS = 22;
+constexpr int TT_SIZE = 1 << TT_BITS;
+const int TT_EXACT = 0;
+const int TT_LOWER = 1;
+const int TT_UPPER = 2;
 const unsigned long long HALF_MOVES_CLEAR = 0xFFFFFFFFFFF000FF;
 const unsigned long long A_FILE = 0x101010101010101ULL;
 const unsigned long long B_FILE = 0x202020202020202ULL;
@@ -334,6 +338,7 @@ unsigned long long ZOBRIST_BLACK_TO_MOVE = 4770022652777159788ULL;
 
 
 const int MATE = 30000;
+const int MATE_BOUND = MATE - 100;
 const int INF = MATE + 100000;
 constexpr int MG_VALUE[6] = { 82, 337, 365, 477, 1025,  0};
 constexpr int EG_VALUE[6] = { 94, 281, 297, 512,  936,  0};

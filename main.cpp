@@ -1,4 +1,5 @@
 #include "engine.cpp"
+TTMap tt;
 int main() {
     precomputeMasks();
     setPosition("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", bitboard, piece_board);
@@ -21,7 +22,7 @@ int main() {
         int side = getSide(bitboard);
         if(side == engineSide) {
             unsigned long long begin = currentMillis();
-            unsigned int move = negamax<evaluateOld>(0, 9, -INF, INF, bitboard, piece_board).first;
+            unsigned int move = negamax<evaluateNew>(0, 9, -INF, INF, bitboard, piece_board, tt).first;
             cout << "Elapsed time: " << (currentMillis() - begin) << " ms\n";
             printMove(move);
             cout << "\n";

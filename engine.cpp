@@ -1495,9 +1495,9 @@ int evaluateNew(unsigned long long board[]) {
 }
 
 template <int (*F) (unsigned long long[])>
-double quiescenceSearch(int ply, double alpha, double beta, unsigned long long board[], int pieces[]) {
+int quiescenceSearch(int ply, int alpha, int beta, unsigned long long board[], int pieces[]) {
     int side = getSide(board);
-    double best = F(board) * (side == WHITE ? 1 : -1);
+    int best = F(board) * (side == WHITE ? 1 : -1);
     computeMasks(side, board);
     bool isCheck = (board[CHECKMASK] != MAX);
 
@@ -1529,7 +1529,7 @@ double quiescenceSearch(int ply, double alpha, double beta, unsigned long long b
         copy(board, board + BITBOARD_SIZE, boardcpy);
         copy(pieces, pieces + 64, piececpy);
         makeMove(curr, boardcpy, piececpy);
-        double currValue = -quiescenceSearch<F>(ply + 1, -beta, -alpha, boardcpy, piececpy);
+        int currValue = -quiescenceSearch<F>(ply + 1, -beta, -alpha, boardcpy, piececpy);
         positions.pop();
         if(best < currValue) {
             best = currValue;
@@ -1542,23 +1542,55 @@ double quiescenceSearch(int ply, double alpha, double beta, unsigned long long b
 }
 
 template <int (*F) (unsigned long long[])>
-pair<unsigned int, double> negamax(int ply, int depth, double alpha, double beta, unsigned long long board[], int pieces[]) {
+pair<unsigned int, int> negamax(int ply, int depth, int alpha, int beta, unsigned long long board[], int pieces[], TTMap& tt) {
     int side = getSide(board);
     if(depth == 0) {
         return {0, quiescenceSearch<F>(ply + 1, alpha, beta, board, pieces)};
     }
 
+    TTEntry& entry = tt.get(board[HASH]);
+    int alphacpy = alpha;
+    unsigned int ttMove = 0;
+    if(entry.hash == board[HASH]) {
+        ttMove = entry.move;
+        if(entry.depth >= depth) {
+            int score = entry.score;
+            if(score >= MATE_BOUND) score -= ply;
+            else if(score <= -MATE_BOUND) score += ply;
+            switch(entry.flag) {
+            case TT_EXACT:
+                return {entry.move, entry.score};
+            case TT_LOWER:
+                if(entry.score > alpha) {
+                    alpha = entry.score;
+                }
+                break;
+            case TT_UPPER:
+                if(entry.score < beta) {
+                    beta = entry.score;
+                }
+            }
+            if(alpha >= beta) return {entry.move, entry.score};
+        }
+    }
     fixedVector<unsigned int> moves;
     generateMoves(side, board, moves, pieces);
     moves.sort();
-
+    if(ttMove) {
+        for(int i = 0; i < moves.size; i++) {
+            if(moves.arr[i] == ttMove) {
+                swap(moves.arr[0], moves.arr[i]);
+                break;
+            }
+        }
+    }
     if(moves.size == 0) {
         if(board[CHECKMASK] == MAX) return {0, 0};
         else return {0, -(MATE - ply)};
     }
     if(isDraw(board, positions, 2)) return {0, 0};
     unsigned int current = moves.arr[0];
-    double value = -200000;
+    int value = -INF;
     for(int i = 0; i < moves.size; i++) {
         unsigned int curr = moves.arr[i];
         unsigned long long boardcpy[BITBOARD_SIZE];
@@ -1566,7 +1598,7 @@ pair<unsigned int, double> negamax(int ply, int depth, double alpha, double beta
         copy(board, board + BITBOARD_SIZE, boardcpy);
         copy(pieces, pieces + 64, piececpy);
         makeMove(curr, boardcpy, piececpy);
-        pair<unsigned int, double> currMove = negamax<F>(ply + 1, depth - 1, -beta, -alpha, boardcpy, piececpy);
+        pair<unsigned int, int> currMove = negamax<F>(ply + 1, depth - 1, -beta, -alpha, boardcpy, piececpy, tt);
         positions.pop();
         if(value < -currMove.second) {
             value = -currMove.second;
@@ -1575,5 +1607,12 @@ pair<unsigned int, double> negamax(int ply, int depth, double alpha, double beta
         alpha = max(alpha, value);
         if(alpha >= beta) break;
     }
+    int flag = (value <= alphacpy) ? TT_UPPER
+            :  (value >= beta) ? TT_LOWER
+            :  TT_EXACT;
+    int score = value;
+    if(score >= MATE_BOUND) score = MATE;
+    else if(score <= -MATE_BOUND) score = -MATE;
+    tt.insert(TTEntry(board[HASH], current, depth, score, flag));
     return {current, value};
 }

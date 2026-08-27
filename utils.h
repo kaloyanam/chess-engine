@@ -28,6 +28,41 @@ struct historyVector {
     void pop() {size--;}
 };
 
+struct TTEntry {
+    unsigned long long hash;
+    unsigned int move;
+    int depth;
+    int score;
+    int flag;
+    TTEntry() {
+        this->hash = 0;
+        this->move = 0;
+        this->depth = 0;
+        this->score = 0;
+        this->flag = 0;
+    }
+    TTEntry(unsigned long long hash, unsigned int move, int depth, int score, int flag) {
+        this->hash = hash;
+        this->move = move;
+        this->depth = depth;
+        this->score = score;
+        this->flag = flag;
+    }
+};
+
+struct TTMap {
+    TTEntry* arr;
+    TTMap() {
+        arr = new TTEntry[TT_SIZE];
+    }
+    void insert(TTEntry entry) {
+        arr[entry.hash & (TT_SIZE - 1)] = entry; 
+    }
+    TTEntry& get(unsigned long long hash) {
+        return arr[hash & (TT_SIZE - 1)];
+    }
+};
+
 extern historyVector positions;
 inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void knightMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
