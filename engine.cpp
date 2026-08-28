@@ -4,6 +4,9 @@ using namespace std;
 unsigned long long bitboard[BITBOARD_SIZE];
 int piece_board[64];
 historyVector positions;
+unsigned long long deadline = __LONG_LONG_MAX__;
+bool shouldStop = false;
+unsigned int nodes = 0;
 
 inline unsigned long long findMagicBishop(int pos) {
     int variations = 1 << BISHOP_RELEVANT_BITS[pos];
@@ -379,7 +382,7 @@ inline void pawnCompute(int side, unsigned long long board[]) {
             board[CHECKMASK] = (side == WHITE ? (took & kingPosition) >> 9 : (took & kingPosition) << 7);
             int enPassantFile = ((board[GAME_STATE] >> 4) & 0xFULL);
             if(enPassantFile && (bitscan((side == WHITE ? (took & kingPosition) >> 9 : (took & kingPosition) << 7)) & 0x7ULL) == enPassantFile - 1) {
-                board[CHECKMASK] += (1ULL << (side == BLACK ? 40 : 16) + enPassantFile - 1);
+                board[CHECKMASK_EN_PASSANT] += (1ULL << (side == BLACK ? 40 : 16) + enPassantFile - 1);
             }
         } else {
             board[CHECKMASK] = 0;
@@ -394,7 +397,7 @@ inline void pawnCompute(int side, unsigned long long board[]) {
             board[CHECKMASK] = side == WHITE ? (took & kingPosition) >> 7 : (took & kingPosition) << 9;
             int enPassantFile = (board[GAME_STATE] >> 4) & 0xFULL;
             if(enPassantFile && (bitscan(side == WHITE ? (took & kingPosition) >> 7 : (took & kingPosition) << 9) & 0x7ULL) == enPassantFile - 1) {
-                board[CHECKMASK] += (1ULL << (side == BLACK ? 40 : 16) + enPassantFile - 1);
+                board[CHECKMASK_EN_PASSANT] += (1ULL << (side == BLACK ? 40 : 16) + enPassantFile - 1);
             }
         } else {
             board[CHECKMASK] = 0;
@@ -515,6 +518,7 @@ inline void kingCompute(int side, unsigned long long board[]) {
 
 inline void computeMasks(int side, unsigned long long board[]) {
     board[CHECKMASK] = MAX;
+    board[CHECKMASK_EN_PASSANT] = 0;
     board[HV] = 0;
     board[D12] = 0;
     board[ATTACK_MASK] = 0;
@@ -742,7 +746,7 @@ inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned
         }
     }
     else took &= (side == WHITE) ? occupied_black : occupied_white;
-    took &= ~A_FILE & board[CHECKMASK];
+    took &= ~A_FILE & (board[CHECKMASK] | board[CHECKMASK_EN_PASSANT]);
     for(unsigned long long i = took; i != 0; i -= i&-i) {
         int to = bitscan(i&-i);
         int piece = (pieces[to] != -1 ? pieces[to] : PAWN);
@@ -805,7 +809,7 @@ inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned
         }
     }
     else took &= (side == WHITE) ? occupied_black : occupied_white;
-    took &= ~H_FILE & board[CHECKMASK];
+    took &= ~H_FILE & (board[CHECKMASK] | board[CHECKMASK_EN_PASSANT]);
     for(unsigned long long i = took; i != 0; i -= i&-i) {
         int to = bitscan(i&-i);
         int piece = (pieces[to] != -1 ? pieces[to] : PAWN);
@@ -875,7 +879,7 @@ inline void pawnMovesCaptures(int side, unsigned long long board[], fixedVector<
         }
     }
     else took &= (side == WHITE) ? occupied_black : occupied_white;
-    took &= ~A_FILE & board[CHECKMASK];
+    took &= ~A_FILE & (board[CHECKMASK] | board[CHECKMASK_EN_PASSANT]);
     for(unsigned long long i = took; i != 0; i -= i&-i) {
         int to = bitscan(i&-i);
         int piece = (pieces[to] != -1 ? pieces[to] : PAWN);;
@@ -938,7 +942,7 @@ inline void pawnMovesCaptures(int side, unsigned long long board[], fixedVector<
         }
     }
     else took &= (side == WHITE) ? occupied_black : occupied_white;
-    took &= ~H_FILE & board[CHECKMASK];
+    took &= ~H_FILE & (board[CHECKMASK] | board[CHECKMASK_EN_PASSANT]);
     for(unsigned long long i = took; i != 0; i -= i&-i) {
         int to = bitscan(i&-i);
         int piece = (pieces[to] != -1 ? pieces[to] : PAWN);
@@ -1407,6 +1411,7 @@ inline unsigned long long perft(int depth, unsigned long long board[], int piece
         copy(board, board + BITBOARD_SIZE, boardcpy);
         copy(pieces, pieces + 64, piececpy);
         makeMove(curr, boardcpy, piececpy);
+        positions.pop();
         unsigned long long current = perft(depth - 1, boardcpy, piececpy);
         if(debug) cout << current << "\n";
         nodes += current;
@@ -1496,6 +1501,13 @@ int evaluateNew(unsigned long long board[]) {
 
 template <int (*F) (unsigned long long[])>
 int quiescenceSearch(int ply, int alpha, int beta, unsigned long long board[], int pieces[]) {
+    if(shouldStop) return 0;
+    nodes++;
+    if((nodes & (INCREMENTAL_BATCH_SIZE - 1)) == 0) {
+        if(currentMillis() >= deadline) {
+            shouldStop = true;
+        }
+    }
     int side = getSide(board);
     int best = F(board) * (side == WHITE ? 1 : -1);
     computeMasks(side, board);
@@ -1543,9 +1555,16 @@ int quiescenceSearch(int ply, int alpha, int beta, unsigned long long board[], i
 
 template <int (*F) (unsigned long long[])>
 pair<unsigned int, int> negamax(int ply, int depth, int alpha, int beta, unsigned long long board[], int pieces[], TTMap& tt) {
+    if(shouldStop) return {0, 0};
+    nodes++;
+    if((nodes & (INCREMENTAL_BATCH_SIZE - 1)) == 0) {
+        if(currentMillis() >= deadline) {
+            shouldStop = true;
+        }
+    }
     int side = getSide(board);
     if(depth == 0) {
-        return {0, quiescenceSearch<F>(ply + 1, alpha, beta, board, pieces)};
+        return {0, quiescenceSearch<F>(ply, alpha, beta, board, pieces)};
     }
 
     TTEntry& entry = tt.get(board[HASH]);
@@ -1559,18 +1578,18 @@ pair<unsigned int, int> negamax(int ply, int depth, int alpha, int beta, unsigne
             else if(score <= -MATE_BOUND) score += ply;
             switch(entry.flag) {
             case TT_EXACT:
-                return {entry.move, entry.score};
+                return {entry.move, score};
             case TT_LOWER:
                 if(entry.score > alpha) {
-                    alpha = entry.score;
+                    alpha = score;
                 }
                 break;
             case TT_UPPER:
                 if(entry.score < beta) {
-                    beta = entry.score;
+                    beta = score;
                 }
             }
-            if(alpha >= beta) return {entry.move, entry.score};
+            if(alpha >= beta) return {entry.move, score};
         }
     }
     fixedVector<unsigned int> moves;
@@ -1588,7 +1607,7 @@ pair<unsigned int, int> negamax(int ply, int depth, int alpha, int beta, unsigne
         if(board[CHECKMASK] == MAX) return {0, 0};
         else return {0, -(MATE - ply)};
     }
-    if(isDraw(board, positions, 2)) return {0, 0};
+    if(ply > 0 && isDraw(board, positions, 2)) return {0, 0};
     unsigned int current = moves.arr[0];
     int value = -INF;
     for(int i = 0; i < moves.size; i++) {
@@ -1611,8 +1630,29 @@ pair<unsigned int, int> negamax(int ply, int depth, int alpha, int beta, unsigne
             :  (value >= beta) ? TT_LOWER
             :  TT_EXACT;
     int score = value;
-    if(score >= MATE_BOUND) score = MATE;
-    else if(score <= -MATE_BOUND) score = -MATE;
-    tt.insert(TTEntry(board[HASH], current, depth, score, flag));
+    if(score >= MATE_BOUND) score += ply;
+    else if(score <= -MATE_BOUND) score -= ply;
+    if(!shouldStop) tt.insert(TTEntry(board[HASH], current, depth, score, flag));
     return {current, value};
+}
+
+template <int (*F) (unsigned long long[])>
+searchResult incrementalSearch(unsigned long long thinkingTime, unsigned long long board[], int pieces[], TTMap& tt) {
+    shouldStop = false;
+    deadline = currentMillis() + thinkingTime;
+    nodes = 0;
+    unsigned int bestMove;
+    int depth = 1;
+    int score;
+    pair<unsigned int, int> res = negamax<F>(0, depth, -INF, INF, board, pieces, tt);
+    bestMove = res.first;
+    score = res.second;
+    for(; true; ) {
+        res = negamax<F>(0, depth + 1, -INF, INF, board, pieces, tt);
+        if(shouldStop) break;
+        bestMove = res.first;
+        score = res.second;
+        depth++;
+    }
+    return searchResult(bestMove, score, depth);
 }

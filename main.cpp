@@ -17,15 +17,18 @@ int main() {
 
     //3rkb1r/1p3ppp/n1bp1q1n/1N2p1N1/p1B1P2P/4BQ2/PP3PP1/2RR2K1 w k - 0 16
     int engineSide = WHITE;
+    int thinkingTime = 5000;
     while(true) {
         drawBoard(bitboard);
         int side = getSide(bitboard);
         if(side == engineSide) {
             unsigned long long begin = currentMillis();
-            unsigned int move = negamax<evaluateNew>(0, 9, -INF, INF, bitboard, piece_board, tt).first;
+            searchResult result = incrementalSearch<evaluateNew>(5000, bitboard, piece_board, tt);
+            unsigned int move = result.bestMove;
             cout << "Elapsed time: " << (currentMillis() - begin) << " ms\n";
-            printMove(move);
-            cout << "\n";
+            cout << intToMove(move, bitboard, piece_board) << "\n";
+            cout << "Reached depth: " << result.maxDepth << "\n";
+            cout << "Evaluation: " << result.score << endl;
             makeMove(move, bitboard, piece_board);
         } else  {
             string s;

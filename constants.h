@@ -17,16 +17,17 @@ const int KING = 5;
 const int WHITE = 0;
 const int BLACK = 6;
 const int CHECKMASK = 12;
-const int HV = 13;
-const int D12 = 14;
-const int ATTACK_MASK = 15;
-const int GAME_STATE = 16;
-const int OCCUPANCY_WHITE = 17;
-const int OCCUPANCY_BLACK = 18;
-const int OCCUPANCY = 19;
-const int DEFENSE_MASK = 20;
-const int HASH = 21;
-const int BITBOARD_SIZE = 22;
+const int CHECKMASK_EN_PASSANT = 13;
+const int HV = 14;
+const int D12 = 15;
+const int ATTACK_MASK = 16;
+const int GAME_STATE = 17;
+const int OCCUPANCY_WHITE = 18;
+const int OCCUPANCY_BLACK = 19;
+const int OCCUPANCY = 20;
+const int DEFENSE_MASK = 21;
+const int HASH = 22;
+const int BITBOARD_SIZE = 23;
 /*
 bits 0-3 - castling rights KQkq
 bits 4-7 - en passant file (1-8, 0 - no)
@@ -495,3 +496,5 @@ constexpr auto MG_TABLE = computePST(MG_PST, MG_VALUE);
 constexpr auto EG_TABLE = computePST(EG_PST, EG_VALUE);
 
 constexpr int PHASE_VALUE[6] = {0, 1, 1, 2, 4, 0};
+
+const int INCREMENTAL_BATCH_SIZE = 4096;

@@ -63,6 +63,17 @@ struct TTMap {
     }
 };
 
+struct searchResult {
+    unsigned int bestMove;
+    int score;
+    int maxDepth;
+    searchResult(unsigned int bestMove, int score, int maxDepth) {
+        this->bestMove = bestMove;
+        this->score = score;
+        this->maxDepth = maxDepth;
+    }
+};
+
 extern historyVector positions;
 inline void pawnMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void knightMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
@@ -269,16 +280,48 @@ inline string intToMove(unsigned int move, unsigned long long board[], int piece
     bool takes = (side == WHITE ? board[OCCUPANCY_BLACK] : board[OCCUPANCY_WHITE]) & 1ULL << ((move >> 6) & 0x3FULL) || special == 2;
     from = bitscan(from);
     to = bitscan(to);
+    string result = "";
     if(special == 1) {
         if(to == coordToInt("g1") || to == coordToInt("g8")) {
-            return "O-O";
+            result = "O-O";
+            unsigned long long boardcpy[BITBOARD_SIZE];
+            int piececpy[64];
+            copy(board, board + BITBOARD_SIZE, boardcpy);
+            copy(pieces, pieces + 64, piececpy);
+            makeMove(move, boardcpy, piececpy);
+            positions.pop();
+            if(boardcpy[CHECKMASK] != MAX) {
+                fixedVector<unsigned int> moves;
+                generateMoves(BLACK - side, boardcpy, moves, piececpy);
+                if(moves.size == 0) {
+                    result += "#";
+                } else {
+                    result += "+";
+                }
+            }
+            return result;
         }
         else {
-            return "O-O-O";
+            result = "O-O-O";
+            unsigned long long boardcpy[BITBOARD_SIZE];
+            int piececpy[64];
+            copy(board, board + BITBOARD_SIZE, boardcpy);
+            copy(pieces, pieces + 64, piececpy);
+            makeMove(move, boardcpy, piececpy);
+            positions.pop();
+            if(boardcpy[CHECKMASK] != MAX) {
+                fixedVector<unsigned int> moves;
+                generateMoves(BLACK - side, boardcpy, moves, piececpy);
+                if(moves.size == 0) {
+                    result += "#";
+                } else {
+                    result += "+";
+                }
+            }
+            return result;
         }
     }
 
-    string result = "";
     fixedVector<unsigned int> moves;
     switch((move >> 16) & 0x7ULL) {
     case PAWN:
