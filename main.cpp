@@ -16,33 +16,54 @@ int main() {
     }*/
 
     //3rkb1r/1p3ppp/n1bp1q1n/1N2p1N1/p1B1P2P/4BQ2/PP3PP1/2RR2K1 w k - 0 16
-    int engineSide = WHITE;
-    int thinkingTime = 5000;
+    int engineSide = BLACK;
+    int thinkingTime = 150;
+    vector<string> moves;
     while(true) {
         drawBoard(bitboard);
         int side = getSide(bitboard);
         if(side == engineSide) {
             unsigned long long begin = currentMillis();
-            searchResult result = incrementalSearch<evaluateNew>(5000, bitboard, piece_board, tt);
+            searchResult result = incrementalSearch<evaluateNew>(thinkingTime, bitboard, piece_board, tt);
             unsigned int move = result.bestMove;
             cout << "Elapsed time: " << (currentMillis() - begin) << " ms\n";
             cout << intToMove(move, bitboard, piece_board) << "\n";
+            moves.push_back(intToMove(move, bitboard, piece_board));
             cout << "Reached depth: " << result.maxDepth << "\n";
             cout << "Evaluation: " << result.score << endl;
             makeMove(move, bitboard, piece_board);
         } else  {
             string s;
             cin >> s;
+            if(s == "qqq") {
+                for(int i = 0; i < moves.size(); i++) {
+                    cout << (i / 2 + 1) << ". ";
+                    cout << moves.at(i) << " ";
+                    i++;
+                    if(moves.size() > i) {
+                        cout << moves.at(i) << endl;
+                    }
+                }
+            }
             unsigned int move = moveToInt(s, bitboard, piece_board);
             while(move == -1) {
                 cout << "Invalid move\n";
                 cin >> s;
                 move = moveToInt(s, bitboard, piece_board);
             }   
+            moves.push_back(intToMove(move, bitboard, piece_board));
             makeMove(move, bitboard, piece_board);
         }
         if(isDraw(bitboard, positions, 3)) {
             cout << "Draw\n\n\n\n";
+            for(int i = 0; i < moves.size(); i++) {
+                cout << (i / 2 + 1) << ". ";
+                cout << moves.at(i) << " ";
+                i++;
+                if(moves.size() > i) {
+                    cout << moves.at(i) << endl;
+                }
+            }
             return 0;
         }
     }
