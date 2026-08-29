@@ -1,0 +1,23 @@
+# --- Compiled engine / test binaries (source .cpp/.h stay tracked) ---
+/converter
+/converter.exe
+/test_uci
+/test
+/selfplay
+/main
+/a.out
+*.o
+*.obj
+*.exe
+*.out
+*.dSYM/
+
+# --- lichess-bot (cloned locally by the setup scripts) + its venv & secrets ---
+/lichess-bot/
+venv/
+__pycache__/
+*.pyc
+config.yml          # contains your BOT token — never commit
+
+# --- OS / editor cruft ---
+.DS_Store

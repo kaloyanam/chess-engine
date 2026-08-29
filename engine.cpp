@@ -536,6 +536,7 @@ inline void computeMasks(int side, unsigned long long board[]) {
 inline void setPosition(string fen, unsigned long long board[], int pieces[]) {
     fill(board, board + BITBOARD_SIZE, 0);
     fill(pieces, pieces + 64, -1);
+    positions.clear();
     int curr = 56;
     for(int i = 0; i < fen[i] != ' '; i++, curr++) {
         if(fen[i] == ' ') {

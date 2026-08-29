@@ -26,6 +26,7 @@ struct historyVector {
     int size = 0;
     void push(unsigned long long hash) {arr[size++] = hash;}
     void pop() {size--;}
+    void clear() {size = 0;}
 };
 
 struct TTEntry {
@@ -61,6 +62,9 @@ struct TTMap {
     TTEntry& get(unsigned long long hash) {
         return arr[hash & (TT_SIZE - 1)];
     }
+    void clear() {
+        fill(arr, arr + TT_SIZE, TTEntry());
+    }
 };
 
 struct searchResult {
@@ -83,6 +87,7 @@ inline void queenMoves(int side, unsigned long long board[], fixedVector<unsigne
 inline void kingMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void generateMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 inline void makeMove(unsigned int move, unsigned long long board[], int pieces[]);
+inline void generateMoves(int side, unsigned long long board[], fixedVector<unsigned int>& moves, int pieces[]);
 
 inline int coordToInt(string coord) {
     return coord[0] - 'a' + (coord[1] - '1') * 8;
@@ -513,6 +518,57 @@ inline string intToMove(unsigned int move, unsigned long long board[], int piece
         }
     }
     return result;
+}
+
+inline unsigned int uciToMove(string uci, unsigned long long board[], int pieces[]) {
+    int from = coordToInt(string() + uci[0] + uci[1]);
+    int to = coordToInt(string() + uci[2] + uci[3]);
+    int promotion = -1;
+    if(uci.size() == 5) {
+        switch(uci[4]) {
+        case 'n':
+            promotion = 0;
+            break;
+        case 'b':
+            promotion = 1;
+            break;
+        case 'r':
+            promotion = 2;
+            break;
+        case 'q':
+            promotion = 3;
+        }
+    }
+    fixedVector<unsigned int> moves;
+    generateMoves(getSide(board), board, moves, pieces);
+    for(int i = 0; i < moves.size; i++) {
+        if((moves.arr[i] & 0x3FULL) == from && ((moves.arr[i] >> 6) & 0x3FULL) == to) {
+            if(promotion == -1)
+                return moves.arr[i];
+            else if(((moves.arr[i] >> 14) & 0x3ULL) == promotion) {
+                return moves.arr[i];
+            }
+        }
+    }
+    return -1;
+}
+
+inline string moveToUci(unsigned int move) {
+    string from = intToCoord(move & 0x3FULL);
+    string to = intToCoord((move >> 6) & 0x3FULL);
+    if(((move >> 12) & 0x3ULL) == 3) {
+        switch((move >> 14) & 0x3ULL) {
+        case 0:
+            return from + to + "n";
+        case 1:
+            return from + to + "b";
+        case 2:
+            return from + to + "r";
+        default:
+            return from + to + "q";
+        }
+    }
+    return from + to;
 }
 
 inline unsigned long long setBit(unsigned long long number, int n, int x) {
